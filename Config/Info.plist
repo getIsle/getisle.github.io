@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Isle</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+
+	<!-- Agent app: no Dock icon, no main menu. The notch overlay + menu bar extra are the whole UI. -->
+	<key>LSUIElement</key>
+	<true/>
+
+	<key>NSHumanReadableCopyright</key>
+	<string>Isle — a Dynamic Island for the Mac notch.</string>
+
+	<!-- Bluetooth: IOBluetooth device connect/disconnect monitoring for AirPods HUD cards. -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Isle watches for Bluetooth audio devices connecting and disconnecting so it can show a HUD card in the notch.</string>
+
+	<!-- Apple Events: the Now Playing fallback source queries Music.app / Spotify via AppleScript
+	     when MediaRemote is unavailable (macOS 15.4+ restricts it). Triggers an Automation prompt. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Isle asks Music, Spotify, Safari and Chrome what is currently playing so it can show track info in the notch.</string>
+
+	<!-- Calendar: EventKit read access for the Up Next row and meeting reminders.
+	     macOS 14+ will not even show the prompt without the FullAccess key. -->
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Isle shows your next event in the notch and reminds you just before it starts.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Isle shows your next event in the notch and reminds you just before it starts.</string>
+
+	<!-- Focus: INFocusStatusCenter is the only public way to learn that a Focus is on. -->
+	<key>NSFocusStatusUsageDescription</key>
+	<string>Isle shows which Focus you are in on the notch, and quietens its own cards while one is active.</string>
+
+	<!-- Public entry point for other scripts/apps to push a notification card into the notch. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.isle.Isle.notify</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>isle</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+# Build output
+build/
+dist/
+DerivedData/
+*.dmg
+
+# Xcode per-user state
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Local backups
+*.tgz
