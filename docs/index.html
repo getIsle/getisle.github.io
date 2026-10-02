@@ -221,6 +221,69 @@ footer{margin-top:clamp(96px,12vw,140px);padding-block:36px;border-top:1px solid
 footer .brand{font-size:15px;font-weight:500;font-family:var(--body);color:var(--faint)}
 footer .brand img{width:22px;height:22px}
 
+/* ---------- interactive additions ---------- */
+/* what the hero island shows for non-music moments */
+.art{transition:left var(--spring-dur) var(--spring),top var(--spring-dur) var(--spring),width var(--spring-dur) var(--spring),height var(--spring-dur) var(--spring),border-radius var(--spring-dur) var(--spring),background .6s,opacity .25s,transform .35s var(--ease-out)}
+.island:not([data-kind="music"]) .art{opacity:0;transform:scale(.5)}
+.island:not([data-kind="music"]) .bars{opacity:0;filter:blur(4px)}
+.lead,.trail{position:absolute;opacity:0;filter:blur(4px);transform:scale(.8);transition:opacity .25s,filter .25s,transform .25s,top var(--spring-dur) var(--spring)}
+.lead{left:12px;top:calc((var(--strip) * 1px - 16px) / 2);height:16px;display:grid;place-items:center}
+.trail{right:12px;top:calc((var(--strip) * 1px - 20px) / 2);height:20px;display:grid;place-items:center;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.island[data-kind="battery"] .lead-battery,.island[data-kind="battery"] .trail-battery,
+.island[data-kind="meeting"] .lead-meeting,
+.island[data-kind="headphones"] .lead-headphones,.island[data-kind="headphones"] .trail-ring{
+  opacity:1;filter:none;transform:none;transition:opacity .4s var(--ease-out) .1s,filter .4s var(--ease-out) .1s,transform .5s var(--spring) .1s,top var(--spring-dur) var(--spring)}
+.island[data-state="meeting"] .caption,.island[data-state="headphones"] .caption{opacity:1;filter:none;transform:none;transition:opacity .45s var(--ease-out) .12s,filter .45s var(--ease-out) .12s,transform .45s var(--ease-out) .12s}
+
+/* full screen: the island folds into the notch while a "film" slides in */
+.fs-app{position:absolute;inset:0;z-index:3;transform:translateX(102%);transition:transform .75s var(--ease-out);
+  background:radial-gradient(80% 90% at 70% 40%,#3B1F4F 0%,#140C22 55%,#06070D 100%);display:grid;place-items:center}
+.fs-app span{font-family:var(--mono);font-size:calc(12px * var(--s,1));letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:10px}
+.screen.fullscreen .fs-app{transform:none}
+.island-anchor{transition:transform .5s var(--spring-soft),opacity .35s,filter .35s}
+.screen.fullscreen .island-anchor{z-index:4;opacity:0;filter:blur(8px);transform:translateX(-50%) scale(calc(1.3 * var(--s,1) * .7),calc(1.3 * var(--s,1) * .3))}
+
+/* demo chips */
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:4px;max-width:880px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:999px;font-size:14px;font-weight:500;color:#E6E8F5;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.11);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  transition:background .25s,color .25s,border-color .25s,transform .45s var(--spring)}
+.chip:hover{background:rgba(255,255,255,.1);transform:translateY(-1px)}
+.chip:active{transform:scale(.95);transition-duration:.12s}
+.chip[aria-pressed="true"]{background:var(--ink);color:#07080F;border-color:var(--ink)}
+.chip svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* moments are buttons now */
+.moment{cursor:pointer;border-radius:24px;outline-offset:6px}
+.moment .go{margin-top:2px;font-size:13px;color:#8FB3FF;display:inline-flex;align-items:center;gap:6px;opacity:.75;transition:opacity .25s,gap .35s var(--spring)}
+.moment:hover .go{opacity:1;gap:9px}
+
+/* layout switch on the showcase */
+.seg-wrap{position:relative;display:flex;justify-content:center;margin:-8px 0 28px}
+.seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.seg button{position:relative;z-index:1;padding:9px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--mist);transition:color .3s}
+.seg button[aria-pressed="true"]{color:#07080F}
+.seg-thumb{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:999px;background:var(--ink);transition:transform .55s var(--spring)}
+.seg[data-v="single"] .seg-thumb{transform:translateX(100%)}
+.panel.single{width:345px}
+.island[data-layout="single"] .panel.split,.island[data-layout="split"] .panel.single{opacity:0;filter:blur(8px);transform:scale(.96);pointer-events:none;transition:opacity .16s,filter .16s,transform .16s}
+.island[data-state="open"] .panel.single .bars{opacity:1;filter:none}
+.s-progress{position:absolute;left:19px;right:19px;top:98px;display:flex;align-items:center;gap:10px;font-size:11px;color:#8E93AE;font-variant-numeric:tabular-nums}
+.s-progress div{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.16);overflow:hidden}
+.s-progress div i{display:block;width:38%;height:100%;border-radius:2px;background:rgba(255,255,255,.62)}
+#show-island{transition:width .6s var(--spring),height .6s var(--spring),border-radius .6s var(--spring)}
+
+/* agenda rows in the showcase respond */
+.showcase .ev{cursor:pointer}
+.showcase .ev.picked{background:rgba(255,255,255,.1)}
+.join{transition:transform .4s var(--spring),background .3s}
+.showcase .join:hover{transform:scale(1.12)}
+
+/* feature cards: a light that follows the pointer */
+.card{background:radial-gradient(260px circle at var(--mx,50%) var(--my,-40%),rgba(143,179,255,.12),transparent 70%),var(--panel)}
+.card:hover{background:radial-gradient(260px circle at var(--mx,50%) var(--my,-40%),rgba(143,179,255,.16),transparent 70%),rgba(255,255,255,.05)}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
 }
@@ -263,6 +326,7 @@ footer .brand img{width:22px;height:22px}
         <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span></div>
         <div class="l"><span id="clock-date">Sun 27 Sep</span><span id="clock">13:30</span></div>
       </div>
+      <div class="fs-app" aria-hidden="true"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,.55)"><path d="M7 4l13 8-13 8z"/></svg>A film, in full screen</span></div>
       <div class="island-anchor">
         <div class="island-glow" id="glow" style="--w:268;--h:36"></div>
         <div class="island-hit" id="hit">
@@ -272,6 +336,11 @@ footer .brand img{width:22px;height:22px}
                style="--art:linear-gradient(135deg,#FFB45A 0%,#FF5F82 52%,#8C4FFF 100%);--strip:36">
             <div class="art" id="art"></div>
             <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <span class="lead lead-battery" aria-hidden="true"><svg width="26" height="14" viewBox="0 0 26 14"><rect x=".75" y=".75" width="21.5" height="12.5" rx="3.5" fill="none" stroke="#FF9F0A" stroke-width="1.5"/><rect x="3" y="3" width="4" height="8" rx="1.5" fill="#FF9F0A"/><rect x="23.5" y="4.5" width="2" height="5" rx="1" fill="#FF9F0A"/></svg></span>
+            <span class="lead lead-meeting" aria-hidden="true"><svg width="20" height="13" viewBox="0 0 18 12"><rect x=".5" y=".5" width="12" height="11" rx="2.5" fill="#30C75A"/><path d="M13.5 4.5 17.5 2v8l-4-2.5Z" fill="#30C75A"/></svg></span>
+            <span class="lead lead-headphones" aria-hidden="true"><svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg></span>
+            <span class="trail trail-battery" aria-hidden="true" style="color:#FF9F0A">18%</span>
+            <span class="trail trail-ring" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2.5"/><circle cx="10" cy="10" r="8" fill="none" stroke="#30C75A" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="40 50.3" transform="rotate(-90 10 10)"/></svg></span>
             <div class="caption" id="caption">Midnight Tide<span>&nbsp;&nbsp;&nbsp;Aria Vale</span></div>
             <div class="panel" aria-hidden="true" id="panel">
               <div class="p-title" id="p-title">Midnight Tide</div>
@@ -296,7 +365,16 @@ footer .brand img{width:22px;height:22px}
         </div>
       </div>
     </div>
-    <p class="hint in" style="--d:1.2s"><kbd>Try it</kbd> Hover the notch, then click it.</p>
+    <p class="hint in" style="--d:1.2s"><kbd>Try it</kbd> Hover the notch, then click it. Or play a moment:</p>
+    <div class="chips in" style="--d:1.3s" role="group" aria-label="Play a moment on the notch">
+      <button class="chip" type="button" data-play="peek"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Now playing</button>
+      <button class="chip" type="button" data-play="song"><svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8zM19 5v14"/></svg>New song</button>
+      <button class="chip" type="button" data-play="open"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M12 5v14"/></svg>Open it</button>
+      <button class="chip" type="button" data-play="battery"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="17" height="10" rx="2.5"/><path d="M21.5 10.5v3M6 10v4"/></svg>Low battery</button>
+      <button class="chip" type="button" data-play="meeting"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Meeting soon</button>
+      <button class="chip" type="button" data-play="headphones"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>Headphones</button>
+      <button class="chip" type="button" data-play="fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Full screen</button>
+    </div>
   </section>
 
   <section class="block" id="moments">
@@ -306,31 +384,31 @@ footer .brand img{width:22px;height:22px}
       <p>Short values sit beside the camera. Anything longer drops into one line below it, then the island tucks back in.</p>
     </div>
     <div class="moments">
-      <div class="moment reveal">
+      <div class="moment reveal" role="button" tabindex="0" data-play="song">
         <div class="stage"><div class="mini" style="--fr:12;width:280px;height:62px;border-radius:0 0 20px 20px">
           <div style="position:absolute;left:10px;top:6px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#FFB45A,#FF5F82 52%,#8C4FFF)"></div>
           <div class="bars" style="--strip:36"><i></i><i></i><i></i><i></i></div>
           <div class="cap">Midnight Tide<span>&nbsp;&nbsp;&nbsp;Aria Vale</span></div></div></div>
-        <h3>A new song starts</h3><p>The cover beside the camera, the title and artist underneath.</p>
+        <h3>A new song starts</h3><p>The cover beside the camera, the title and artist underneath.</p><span class="go">Show it on the notch ↑</span>
       </div>
-      <div class="moment reveal">
+      <div class="moment reveal" role="button" tabindex="0" data-play="battery">
         <div class="stage"><div class="mini" style="width:260px;height:36px;border-radius:0 0 15px 15px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;box-sizing:border-box">
           <svg width="26" height="14" viewBox="0 0 26 14" aria-hidden="true"><rect x=".75" y=".75" width="21.5" height="12.5" rx="3.5" fill="none" stroke="#FF9F0A" stroke-width="1.5"/><rect x="3" y="3" width="4" height="8" rx="1.5" fill="#FF9F0A"/><rect x="23.5" y="4.5" width="2" height="5" rx="1" fill="#FF9F0A"/></svg>
           <span style="font-size:13px;font-weight:600;color:#FF9F0A">18%</span></div></div>
-        <h3>Battery runs low</h3><p>At 20%, 10% and 5%, like an iPhone. Plugging in shows green.</p>
+        <h3>Battery runs low</h3><p>At 20%, 10% and 5%, like an iPhone. Plugging in shows green.</p><span class="go">Show it on the notch ↑</span>
       </div>
-      <div class="moment reveal">
+      <div class="moment reveal" role="button" tabindex="0" data-play="meeting">
         <div class="stage"><div class="mini" style="--fr:12;width:280px;height:62px;border-radius:0 0 20px 20px">
           <svg style="position:absolute;left:12px;top:11px" width="20" height="13" viewBox="0 0 18 12" aria-hidden="true"><rect x=".5" y=".5" width="12" height="11" rx="2.5" fill="#30C75A"/><path d="M13.5 4.5 17.5 2v8l-4-2.5Z" fill="#30C75A"/></svg>
           <div class="cap">Design review<span>&nbsp;&nbsp;&nbsp;in 5 min</span></div></div></div>
-        <h3>A meeting is close</h3><p>A reminder before it starts, with Join ready for Zoom, Meet and Teams.</p>
+        <h3>A meeting is close</h3><p>A reminder before it starts, with Join ready for Zoom, Meet and Teams.</p><span class="go">Show it on the notch ↑</span>
       </div>
-      <div class="moment reveal">
+      <div class="moment reveal" role="button" tabindex="0" data-play="headphones">
         <div class="stage"><div class="mini" style="--fr:12;width:280px;height:62px;border-radius:0 0 20px 20px">
           <svg style="position:absolute;left:12px;top:9px" width="20" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>
           <svg style="position:absolute;right:12px;top:8px" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2.5"/><circle cx="10" cy="10" r="8" fill="none" stroke="#30C75A" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="40 50.3" transform="rotate(-90 10 10)"/></svg>
           <div class="cap">Headphones<span>&nbsp;&nbsp;&nbsp;80%</span></div></div></div>
-        <h3>Headphones connect</h3><p>AirPods and Bluetooth headphones, with their battery when they share it.</p>
+        <h3>Headphones connect</h3><p>AirPods and Bluetooth headphones, with their battery when they share it.</p><span class="go">Show it on the notch ↑</span>
       </div>
     </div>
   </section>
@@ -345,9 +423,19 @@ footer .brand img{width:22px;height:22px}
       <div class="show-stage">
         <div class="anchor"><div class="shape" style="--fr:16">
           <i class="flare l" aria-hidden="true"></i><i class="flare r" aria-hidden="true"></i>
-          <div class="island" data-state="open" style="--w:440;--h:176;--r:36;--strip:36;--art:linear-gradient(135deg,#FFB45A 0%,#FF5F82 52%,#8C4FFF 100%);cursor:default" aria-hidden="true">
+          <div class="island" id="show-island" data-state="open" data-kind="music" data-layout="split" style="--w:440;--h:176;--r:36;--strip:36;--art:linear-gradient(135deg,#FFB45A 0%,#FF5F82 52%,#8C4FFF 100%);cursor:default" aria-hidden="true">
             <div class="art"></div>
-            <div class="panel">
+            <div class="panel single">
+              <div class="p-title" style="width:170px">Midnight Tide</div><div class="p-artist" style="width:170px">Aria Vale</div>
+              <div class="bars" style="--strip:36;right:19px;top:16px"><i></i><i></i><i></i><i></i></div>
+              <div class="s-progress"><span>1:28</span><div><i></i></div><span>-2:47</span></div>
+              <div class="transport" style="left:0;width:345px;top:116px;gap:22px">
+                <span style="width:38px;height:38px;display:grid;place-items:center"><svg width="18" height="14" viewBox="0 0 18 14"><path d="M9 1 L1 7 L9 13 Z M17 1 L9 7 L17 13 Z" fill="#fff"/></svg></span>
+                <span style="width:38px;height:38px;display:grid;place-items:center"><svg width="14" height="16" viewBox="0 0 14 16"><rect x="1" y="1" width="4" height="14" rx="1.2" fill="#fff"/><rect x="9" y="1" width="4" height="14" rx="1.2" fill="#fff"/></svg></span>
+                <span style="width:38px;height:38px;display:grid;place-items:center"><svg width="18" height="14" viewBox="0 0 18 14"><path d="M1 1 L9 7 L1 13 Z M9 1 L17 7 L9 13 Z" fill="#fff"/></svg></span>
+              </div>
+            </div>
+            <div class="panel split">
               <div class="p-title">Midnight Tide</div><div class="p-artist">Aria Vale</div>
               <div class="track"><i style="width:38%"></i></div>
               <div class="transport">
@@ -366,7 +454,14 @@ footer .brand img{width:22px;height:22px}
           </div>
         </div></div>
       </div>
-      <div class="notes">
+      <div class="seg-wrap">
+        <div class="seg" id="seg" data-v="split" role="group" aria-label="Layout when music is on">
+          <i class="seg-thumb" aria-hidden="true"></i>
+          <button type="button" data-v="split" aria-pressed="true">Side by side</button>
+          <button type="button" data-v="single" aria-pressed="false">Single</button>
+        </div>
+      </div>
+      <div class="notes" id="notes">
         <div class="note"><span class="eyebrow" style="color:#FFB45A">Left</span>The cover sits beside the camera. Title, progress and controls live below it.</div>
         <div class="note"><span class="eyebrow" style="color:#9AA0BD">Middle</span>Nothing is ever drawn under the camera. The divider starts below it.</div>
         <div class="note"><span class="eyebrow" style="color:#FF6FA3">Right</span>Today’s date in the corner, your next three events underneath.</div>
@@ -471,6 +566,7 @@ footer .brand img{width:22px;height:22px}
   const island = document.getElementById('island'), hit = document.getElementById('hit'), glow = document.getElementById('glow');
   const caption = document.getElementById('caption'), pTitle = document.getElementById('p-title'), pArtist = document.getElementById('p-artist');
   const progress = document.getElementById('progress'), toggle = document.getElementById('toggle'), toggleIcon = document.getElementById('toggle-icon');
+  const chips = [...document.querySelectorAll('.chip')];
 
   const songs = [
     { title: 'Midnight Tide', artist: 'Aria Vale', art: 'linear-gradient(135deg,#FFB45A 0%,#FF5F82 52%,#8C4FFF 100%)' },
@@ -478,21 +574,30 @@ footer .brand img{width:22px;height:22px}
     { title: 'Paper Lanterns', artist: 'Noor & Wren', art: 'linear-gradient(135deg,#FDE68A 0%,#F97316 55%,#7C2D12 100%)' }
   ];
   let songIndex = 0, elapsed = 38, playing = true;
-  const shapes = { peek: [268, 36, 15], song: [304, 64, 20], open: [440, 176, 36] };
-  let state = 'peek', hovered = false, lifted = false, leaveTimer = null, momentTimer = null;
+  // width, height, bottom radius, shoulder radius, what it shows
+  const shapes = {
+    peek:       [268, 36, 15, 9,  'music'],
+    song:       [304, 64, 20, 12, 'music'],
+    open:       [440, 176, 36, 16, 'music'],
+    battery:    [300, 36, 15, 9,  'battery'],
+    meeting:    [304, 64, 20, 12, 'meeting'],
+    headphones: [304, 64, 20, 12, 'headphones']
+  };
+  let state = 'peek', hovered = false, lifted = false, leaveTimer = null, backTimer = null, manualUntil = 0;
 
   function render() {
-    let [w, h, r] = shapes[state];
-    if (lifted && state !== 'open') { w += 14; h += 5; r += 2; }
-    const strip = state === 'song' ? (lifted ? 41 : 36) : (lifted ? 41 : 36);
+    let [w, h, r, fr, kind] = shapes[state];
+    if (lifted && state !== 'open') { w += 14; h += 5; r += 2; fr += 1; }
     island.style.setProperty('--w', w); island.style.setProperty('--h', h); island.style.setProperty('--r', r);
-    island.style.setProperty('--strip', state === 'open' ? 36 : strip);
+    island.style.setProperty('--strip', state === 'open' ? 36 : (lifted ? 41 : 36));
     glow.style.setProperty('--w', w * 1.3); glow.style.setProperty('--h', h * 1.3);
     glow.style.opacity = state === 'open' ? .46 : .34;
-    const fr = { peek: 9, song: 12, open: 16 }[state] + (lifted && state !== 'open' ? 1 : 0);
     shape.style.setProperty('--fr', fr);
     island.dataset.state = state;
+    island.dataset.kind = kind;
     island.setAttribute('aria-expanded', state === 'open');
+    const fs = screen.classList.contains('fullscreen');
+    chips.forEach(c => c.setAttribute('aria-pressed', fs ? c.dataset.play === 'fullscreen' : c.dataset.play === state));
   }
 
   function setState(next, closing) {
@@ -501,15 +606,52 @@ footer .brand img{width:22px;height:22px}
     state = next; render();
   }
 
+  function setCaption(title, detail) {
+    caption.textContent = title;
+    const span = document.createElement('span'); span.textContent = '   ' + detail; caption.append(span);
+  }
+
   function showSong(i) {
     const s = songs[i];
     island.style.setProperty('--art', s.art);
-    caption.innerHTML = '';
-    caption.append(s.title);
-    const span = document.createElement('span'); span.textContent = '   ' + s.artist; caption.append(span);
+    setCaption(s.title, s.artist);
     pTitle.textContent = s.title; pArtist.textContent = s.artist;
     elapsed = 0; progress.style.width = '0%';
   }
+
+  /* A moment shows for a few seconds, then the island settles back to the music. */
+  function flash(next, ms) {
+    clearTimeout(backTimer);
+    setState(next);
+    backTimer = setTimeout(() => { if (state === next) setState('peek', true); }, ms);
+  }
+
+  function play(what) {
+    manualUntil = Date.now() + 9000;
+    clearTimeout(backTimer);
+    if (what === 'fullscreen') {
+      const on = !screen.classList.contains('fullscreen');
+      if (on) { lifted = false; setState('peek', true); }
+      screen.classList.toggle('fullscreen', on);
+      render();
+      return;
+    }
+    if (screen.classList.contains('fullscreen')) screen.classList.remove('fullscreen');
+    lifted = false;
+    switch (what) {
+      case 'peek': setState('peek', state === 'open'); break;
+      case 'open': setState('open'); break;
+      case 'song':
+        songIndex = (songIndex + 1) % songs.length; showSong(songIndex);
+        if (state === 'open') setState('peek', true);
+        setTimeout(() => flash('song', 3000), state === 'open' ? 380 : 0);
+        break;
+      case 'battery': flash('battery', 3200); break;
+      case 'meeting': setCaption('Design review', 'in 5 min'); flash('meeting', 3400); break;
+      case 'headphones': setCaption('Headphones', '80%'); flash('headphones', 3200); break;
+    }
+  }
+  chips.forEach(c => c.addEventListener('click', () => play(c.dataset.play)));
 
   hit.addEventListener('pointerenter', (e) => {
     if (e.pointerType === 'touch') return;
@@ -524,7 +666,7 @@ footer .brand img{width:22px;height:22px}
       if (state === 'open') setState('peek', true); else render();
     }, 140);
   });
-  const open = () => { if (state !== 'open') { lifted = false; setState('open'); } };
+  const open = () => { if (state !== 'open') { clearTimeout(backTimer); lifted = false; setState('open'); } };
   island.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;
     if (state === 'open') { if (matchMedia('(hover: none)').matches) setState('peek', true); return; }
@@ -558,15 +700,55 @@ footer .brand img{width:22px;height:22px}
     progress.style.width = (elapsed / 215 * 100).toFixed(1) + '%';
   }, 1000);
 
-  /* Every so often, a new song starts: the caption drops below the camera. */
+  /* Left alone, a new song starts every so often. */
   if (!reduce) {
-    momentTimer = setInterval(() => {
-      if (hovered || state !== 'peek' || document.hidden) return;
+    setInterval(() => {
+      if (hovered || state !== 'peek' || document.hidden || Date.now() < manualUntil || screen.classList.contains('fullscreen')) return;
       songIndex = (songIndex + 1) % songs.length; showSong(songIndex);
-      setState('song');
-      setTimeout(() => { if (state === 'song') setState('peek', true); }, 2800);
+      flash('song', 2800);
     }, 7000);
   }
+
+  /* ---------------- moments: hover replays, click shows it on the big notch ---------------- */
+  const spring = getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() || 'cubic-bezier(.22,1.25,.36,1)';
+  document.querySelectorAll('.moment').forEach(card => {
+    const mini = card.querySelector('.mini');
+    const replay = () => {
+      if (reduce || !mini.animate) return;
+      const w = mini.style.width, h = mini.style.height;
+      mini.animate([{ width: '184px', height: '32px' }, { width: w, height: h }], { duration: 650, easing: spring });
+      [...mini.children].forEach(el => el.animate(
+        [{ opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0)' }],
+        { duration: 420, delay: 160, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }));
+    };
+    card.addEventListener('mouseenter', replay);
+    const go = () => {
+      screen.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+      setTimeout(() => play(card.dataset.play), reduce ? 0 : 450);
+    };
+    card.addEventListener('click', go);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+
+  /* ---------------- showcase: Side by side / Single ---------------- */
+  const showIsland = document.getElementById('show-island'), seg = document.getElementById('seg');
+  seg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+    const v = btn.dataset.v;
+    seg.dataset.v = v;
+    seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === btn));
+    showIsland.dataset.layout = v;
+    showIsland.style.setProperty('--w', v === 'single' ? 345 : 440);
+  }));
+  showIsland.querySelectorAll('.ev').forEach(ev => ev.addEventListener('click', () => {
+    showIsland.querySelectorAll('.ev').forEach(x => x.classList.toggle('picked', x === ev && !ev.classList.contains('picked')));
+  }));
+
+  /* ---------------- feature cards: light follows the pointer ---------------- */
+  document.querySelectorAll('.card').forEach(card => card.addEventListener('pointermove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+    card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  }));
 
   showSong(0); elapsed = 82; render();
 })();
