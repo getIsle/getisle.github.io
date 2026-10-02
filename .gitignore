@@ -4,9 +4,13 @@ dist/
 DerivedData/
 *.dmg
 
+# Local helpers (kept on this Mac only)
+Build DMG.command
+
 # Xcode per-user state
 xcuserdata/
 *.xcuserstate
+*.xcworkspace/xcuserdata/
 
 # macOS
 .DS_Store
