@@ -6,7 +6,7 @@
 #      ./Packaging/make-dmg.sh
 #
 #  Output:
-#      dist/Isle-<version>.dmg
+#      dist/Isle.dmg   (upload this to a GitHub Release)
 #
 #  What you get: a window with Isle on the left, an arrow, and the Applications
 #  folder on the right, on Isle's own background, with Isle's icon on the volume.
@@ -56,7 +56,7 @@ if [ ! -d "$APP" ]; then
 fi
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo 1.0)"
-DMG_NAME="$APP_NAME-$VERSION"
+DMG_NAME="$APP_NAME"   # fixed name, so the website link (releases/latest/download/Isle.dmg) always works
 FINAL_DMG="$DIST_DIR/$DMG_NAME.dmg"
 
 # ── 2. Sign ─────────────────────────────────────────────────────────────────
