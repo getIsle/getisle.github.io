@@ -32,7 +32,16 @@ final class MediaService {
 
     /// Last track we announced, so we peek once per track rather than once per update.
     private var lastAnnouncedTrack: String?
-    private var lastPlayingState: Bool?
+    /// Whether the previous (non-empty) sample was playing, and which app it came from.
+    private var lastSeenPlaying = false
+    private var lastSeenSource = ""
+    /// When playback last went from playing to paused. A pause only counts as a real
+    /// pause once it has lasted a few seconds — switching windows can make a player
+    /// report a momentary pause, and that must not look like "playback started".
+    private var pausedSince: Date?
+    /// An announcement waiting out its settle delay, and the track it is for.
+    private var pendingAnnounce: DispatchWorkItem?
+    private var pendingIdentity: String?
 
     init(viewModel: NotchViewModel, preferences: Preferences) {
         self.viewModel = viewModel
@@ -52,6 +61,7 @@ final class MediaService {
     }
 
     func stop() {
+        cancelPendingAnnouncement()
         fallbackProbe?.cancel()
         activeSource?.stop()
         activeSource = nil
@@ -177,34 +187,97 @@ final class MediaService {
     // MARK: Applying updates
 
     private func apply(_ media: NowPlayingInfo?) {
-        let previous = viewModel.nowPlaying
         viewModel.nowPlaying = media
         viewModel.nowPlayingDidChange()
 
-        guard let media, !media.isEmpty else {
-            lastAnnouncedTrack = nil
-            lastPlayingState = nil
+        // A missed poll is not "playback stopped". Switching windows makes the sources
+        // blink, so an empty sample must not make the same song look new when it returns.
+        guard let media, !media.isEmpty else { return }
+
+        let identity = Self.identity(of: media)
+        let source = media.sourceBundleIdentifier ?? media.sourceName ?? ""
+
+        defer {
+            lastSeenPlaying = media.isPlaying
+            lastSeenSource = source
+            if media.isPlaying {
+                pausedSince = nil
+            } else if pausedSince == nil {
+                pausedSince = Date()
+            }
+        }
+
+        // Peek only for a track that is actually playing. Peeking on every pause or
+        // resume would make the island twitch constantly.
+        guard media.isPlaying else {
+            cancelPendingAnnouncement()
             return
         }
 
-        let identity = "\(media.title)|\(media.artist)|\(media.album)"
-        let isNewTrack = identity != lastAnnouncedTrack
-        let startedPlaying = media.isPlaying && (lastPlayingState == false)
+        // The track that was already playing when Isle launched is the baseline, not news.
+        guard let announced = lastAnnouncedTrack else {
+            if pausedSince != nil {
+                scheduleAnnouncement(identity: identity)
+            } else {
+                lastAnnouncedTrack = identity
+            }
+            return
+        }
 
-        lastAnnouncedTrack = identity
-        lastPlayingState = media.isPlaying
+        // macOS hands "now playing" to whichever app you focus. If something was already
+        // playing and the reporting app changed, that is the system switching clients as
+        // you move between windows, not a new song, so adopt it silently.
+        let isNewTrack = identity != announced
+        let clientHandover = isNewTrack && lastSeenPlaying
+            && !source.isEmpty && !lastSeenSource.isEmpty && source != lastSeenSource
+        if clientHandover {
+            cancelPendingAnnouncement()
+            lastAnnouncedTrack = identity
+            return
+        }
 
-        // Peek only for a genuinely new track that is actually playing. Peeking on
-        // every pause/resume would make the island twitch constantly.
-        guard media.isPlaying, isNewTrack || startedPlaying else { return }
+        // Back to the track we already announced: whatever was pending was a blip.
+        if let pending = pendingIdentity, pending != identity { cancelPendingAnnouncement() }
+        if pendingIdentity == identity { return }   // already counting down
 
-        // Don't interrupt an already-open island the user is interacting with.
-        guard !viewModel.isPinned, !viewModel.isHovering else { return }
+        let resumedAfterRealPause = pausedSince.map { Date().timeIntervalSince($0) > 4 } ?? false
+        guard isNewTrack || resumedAfterRealPause else { return }
 
-        // Nor announce the very first sample after launch as if it were new — the
-        // track was already playing before Isle started.
-        guard previous != nil || startedPlaying else { return }
+        scheduleAnnouncement(identity: identity)
+    }
 
-        viewModel.present(hud: .nowPlaying(media))
+    /// Waits a moment before peeking so a blip that corrects itself never reaches the screen.
+    private func scheduleAnnouncement(identity: String) {
+        pendingAnnounce?.cancel()
+        pendingIdentity = identity
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingIdentity = nil
+            self.pendingAnnounce = nil
+            guard let current = self.viewModel.nowPlaying, current.isPlaying,
+                  Self.identity(of: current) == identity else { return }
+            self.lastAnnouncedTrack = identity
+
+            // Don't interrupt an island the user is interacting with.
+            guard !self.viewModel.isPinned, !self.viewModel.isHovering else { return }
+            self.viewModel.present(hud: .nowPlaying(current))
+        }
+        pendingAnnounce = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+    }
+
+    private func cancelPendingAnnouncement() {
+        pendingAnnounce?.cancel()
+        pendingAnnounce = nil
+        pendingIdentity = nil
+    }
+
+    /// Title and artist only, ignoring case and spacing. Album and other metadata often
+    /// arrive late or half-filled, which would otherwise make one song look like two.
+    private static func identity(of media: NowPlayingInfo) -> String {
+        func normalise(_ text: String) -> String {
+            text.lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        }
+        return normalise(media.title) + "|" + normalise(media.artist)
     }
 }
