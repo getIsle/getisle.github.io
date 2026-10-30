@@ -33,6 +33,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Only one Isle at a time. If a newer copy is already running, step aside;
+        // otherwise take over from older ones (this is what makes an update "just
+        // work" when it is opened while the old version is still running).
+        guard InstallGuard.takeOverFromOtherCopies() else {
+            NSApp.terminate(nil)
+            return
+        }
+
         // Belt and braces: LSUIElement already does this, but setting it explicitly
         // means a debug build launched straight from the binary behaves the same.
         NSApp.setActivationPolicy(.accessory)
@@ -51,6 +59,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // instead of all at once on a blank screen. The services start when it ends.
         if preferences.onboardingCompleted {
             startServices()
+            // Already set up, but opened from a download (an update, usually):
+            // offer to put this copy in Applications in one click.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                InstallGuard.offerToInstallIfNeeded()
+            }
         } else {
             showOnboarding()
         }
@@ -112,6 +125,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // Quitting straight away because a newer copy is running: nothing to stop.
+        guard menuBarController != nil else { return }
         services.stop()
         windowController.stop()
     }
@@ -119,6 +134,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opening the app again (double-clicking it in Finder) should surface Settings,
     /// since there is no window to bring forward.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // A new version was copied over this one while it ran: restart into it.
+        if InstallGuard.wasReplacedOnDisk {
+            InstallGuard.relaunch(from: Bundle.main.bundleURL) { _ in SettingsOpener.open() }
+            return false
+        }
         if let onboarding, onboarding.isVisible {
             onboarding.show()
             return true

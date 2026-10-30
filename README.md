@@ -43,12 +43,36 @@ A welcome window walks through five short steps (`Isle/Onboarding/`):
    from there and resumes the flow. Needed for launch at login. Skipped if Isle is
    already installed.
 3. **Permissions** — Calendar, Notifications, Focus, and the Command Line Tools for
-   system-wide Now Playing. Each is requested only when its button is pressed.
+   system-wide Now Playing. Each is requested only when its button is pressed, or
+   all at once with **Allow All**, which asks one after another and says up front
+   how many macOS pop-ups to expect. The Command Line Tools row ticks itself when
+   Apple's installer finishes.
 4. **Make it yours** — launch at login, open on hover, hide in full screen, calendar.
 5. **Ready** — then the island itself says hello.
 
 No monitors start (so no permission prompts appear) until the flow is finished or
 closed. Reopen it any time from the menu bar: **Welcome Guide…**
+
+## Updating and reinstalling
+
+Open the new version however you like: Isle sorts it out.
+
+- **Only one Isle runs at a time** (`App/InstallGuard.swift`). The copy you just
+  opened quits any older copy that is still running; if a *newer* copy is already
+  running, the one you opened steps aside instead.
+- **Opened from the disk image or Downloads?** If you've already been through the
+  welcome guide, Isle asks once: *Update Isle to version X?* One click replaces the
+  copy in Applications (the old one goes to the Trash), keeps your settings and
+  reopens. Tick *Don't ask again* to keep running it from elsewhere.
+- **Dragged the new version over the old one while it was running?** Opening it
+  again restarts into the new version, instead of just waking the old process.
+- **Settings are kept** — they live in `UserDefaults` under the bundle identifier,
+  not inside the app.
+- **Permissions may be asked again.** An ad-hoc signed build gets a new code
+  signature every time, so macOS may treat an update as a new app and ask for
+  Calendar (or Automation) once more. Signing with a Developer ID keeps the same
+  identity across updates, so the grants carry over. See
+  [Signing and distribution](#signing-and-distribution).
 
 ## What it does
 

@@ -195,12 +195,12 @@ private struct PermissionsPage: View {
     @ObservedObject var model: OnboardingModel
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 14) {
             PageHeader(
                 symbol: "hand.raised.fill",
                 tint: .purple,
                 title: "A few permissions",
-                subtitle: "Each one switches on a part of the island. Skip any you don't want — the rest keeps working."
+                subtitle: "Each one switches on a part of the island. Skip any you don't want — the rest keeps working. Nothing ever leaves your Mac."
             )
 
             VStack(spacing: 0) {
@@ -236,19 +236,53 @@ private struct PermissionsPage: View {
                     title: "Now Playing in every app",
                     detail: model.nowPlaying == .granted
                         ? "Ready — Spotify, Music, browsers, and more"
-                        : "Needs Apple's free Command Line Tools",
+                        : model.installingTools
+                            ? "Installing… a few minutes. This ticks itself when done."
+                            : "Optional. Needs Apple's free Command Line Tools",
                     state: model.nowPlaying,
                     request: model.installDeveloperTools,
                     openSettings: {},
-                    requestTitle: "Install"
+                    requestTitle: model.installingTools ? "Retry" : "Install"
                 )
             }
             .padding(.horizontal, 16)
             .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+            allowAll
+                .animation(.easeInOut(duration: 0.2), value: model.pendingCount)
+                .animation(.easeInOut(duration: 0.2), value: model.isAllowingAll)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             // Coming back from System Settings: pick up whatever changed there.
             model.refreshPermissions()
+        }
+    }
+
+    /// The easy path: one button, with a heads-up about what macOS will show.
+    @ViewBuilder
+    private var allowAll: some View {
+        if model.isAllowingAll {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Click “Allow” in each macOS pop-up.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .transition(.opacity)
+        } else if model.pendingCount > 1 {
+            HStack(spacing: 12) {
+                Button {
+                    model.allowAll()
+                } label: {
+                    Label("Allow All", systemImage: "checkmark.shield.fill")
+                }
+                .glassPrimaryButton(compact: true)
+
+                Text("macOS will ask \(model.pendingCount) times — just click Allow.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            .transition(.opacity)
         }
     }
 }
@@ -273,7 +307,9 @@ private struct PermissionRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 13, weight: .semibold))
-                Text(detail).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5))
+                Text(state == .denied ? "Turned off. Open Settings and switch on Isle." : detail)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(state == .denied ? Color.orange.opacity(0.85) : Color.white.opacity(0.5))
             }
 
             Spacer()
@@ -281,7 +317,7 @@ private struct PermissionRow: View {
             trailing
                 .animation(.easeInOut(duration: 0.2), value: state)
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 9)
     }
 
     @ViewBuilder
