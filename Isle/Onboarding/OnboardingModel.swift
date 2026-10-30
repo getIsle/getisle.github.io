@@ -95,25 +95,17 @@ final class OnboardingModel: ObservableObject {
 
     // MARK: Install
 
-    static var isInstalled: Bool {
-        let path = Bundle.main.bundleURL.path
-        return path.hasPrefix("/Applications/")
-            || path.hasPrefix(NSHomeDirectory() + "/Applications/")
-    }
+    static var isInstalled: Bool { InstallGuard.isInApplications }
 
-    /// Copies this build into /Applications (replacing an older copy, which goes to
+    /// Copies this build into Applications (replacing an older copy, which goes to
     /// the Trash so nothing is lost), launches the new copy and quits this one.
     /// The new copy picks the flow up at the next step.
     func moveToApplications() {
         install = .installing
-        let fm = FileManager.default
-        let destination = URL(fileURLWithPath: "/Applications/Isle.app")
 
+        let destination: URL
         do {
-            if fm.fileExists(atPath: destination.path) {
-                try fm.trashItem(at: destination, resultingItemURL: nil)
-            }
-            try fm.copyItem(at: Bundle.main.bundleURL, to: destination)
+            destination = try InstallGuard.copyIntoApplications()
         } catch {
             install = .failed(error.localizedDescription)
             return
@@ -122,17 +114,9 @@ final class OnboardingModel: ObservableObject {
         preferences.onboardingResumeStep = Step.permissions.rawValue
         Self.isHandingOver = true
 
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: destination, configuration: configuration) { _, error in
-            Task { @MainActor in
-                if let error {
-                    Self.isHandingOver = false
-                    self.install = .failed(error.localizedDescription)
-                } else {
-                    NSApp.terminate(nil)
-                }
-            }
+        InstallGuard.relaunch(from: destination) { [weak self] error in
+            Self.isHandingOver = false
+            self?.install = .failed(error.localizedDescription)
         }
     }
 
@@ -168,10 +152,44 @@ final class OnboardingModel: ObservableObject {
         }
     }
 
-    func requestCalendar() {
-        let store = EKEventStore()
+    /// How many macOS permission pop-ups "Allow All" would bring up.
+    var pendingCount: Int {
+        [calendar, notifications, focus].filter { $0 == .notAsked }.count
+    }
+
+    @Published private(set) var isAllowingAll = false
+
+    /// One button for people who just want it to work: asks for every permission
+    /// that hasn't been asked yet, strictly one after another so the macOS dialogs
+    /// never pile up on top of each other.
+    func allowAll() {
+        guard !isAllowingAll else { return }
+        isAllowingAll = true
         Task {
-            let granted = (try? await store.requestFullAccessToEvents()) ?? false
+            if calendar == .notAsked {
+                let granted = (try? await eventStore.requestFullAccessToEvents()) ?? false
+                calendar = granted ? .granted : .denied
+            }
+            if notifications == .notAsked {
+                let granted = (try? await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound])) ?? false
+                notifications = granted ? .granted : .denied
+            }
+            if focus == .notAsked {
+                let status = await withCheckedContinuation { continuation in
+                    INFocusStatusCenter.default.requestAuthorization { continuation.resume(returning: $0) }
+                }
+                focus = status == .authorized ? .granted : .denied
+            }
+            isAllowingAll = false
+        }
+    }
+
+    private let eventStore = EKEventStore()
+
+    func requestCalendar() {
+        Task {
+            let granted = (try? await eventStore.requestFullAccessToEvents()) ?? false
             calendar = granted ? .granted : .denied
         }
     }
@@ -195,6 +213,25 @@ final class OnboardingModel: ObservableObject {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
         process.arguments = ["--install"]
         try? process.run()
+
+        // Apple's installer takes a few minutes and never tells us it finished,
+        // so look for the tools every few seconds and tick the row when they land.
+        installingTools = true
+        toolsPoll?.invalidate()
+        toolsPoll = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.checkDeveloperTools() }
+        }
+    }
+
+    @Published private(set) var installingTools = false
+    private var toolsPoll: Timer?
+
+    private func checkDeveloperTools() {
+        guard MediaRemoteHelperSource.locateSwift() != nil else { return }
+        nowPlaying = .granted
+        installingTools = false
+        toolsPoll?.invalidate()
+        toolsPoll = nil
     }
 
     func openPrivacySettings(_ anchor: String) {
