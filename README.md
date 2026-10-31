@@ -502,6 +502,12 @@ reverts itself and logs rather than silently lying if registration fails.
 
 ---
 
+## Support
+
+Isle is free and always will be. If it's useful to you, you can buy me a coffee on Ko-fi. It goes toward an Apple Developer ID, so Isle can install without the security warning.
+
+[![Buy me a coffee on Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/hey_nikhilraj)
+
 ## Licence
 
 Personal project. MediaRemote usage makes it unsuitable for App Store distribution;
