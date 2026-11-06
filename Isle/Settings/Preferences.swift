@@ -36,6 +36,7 @@ final class Preferences: ObservableObject {
         static let islandStyle = "appearance.islandStyle"
         static let adoptedFlaredDefault = "appearance.adoptedFlaredDefault"
         static let detachFromTopEdge = "appearance.detachFromTopEdge"
+        static let liquidSplit = "appearance.liquidSplit"
         static let hudDuration = "behaviour.hudDuration"
         static let notificationDuration = "behaviour.notificationDuration"
         static let expandOnHover = "behaviour.expandOnHover"
@@ -74,6 +75,8 @@ final class Preferences: ObservableObject {
     /// leaves that housing visible as a black tab above the capsule — hence the
     /// default below is "only when there is no notch to worry about".
     @Published var detachFromTopEdge: Bool { didSet { defaults.set(detachFromTopEdge, forKey: Key.detachFromTopEdge) } }
+    /// A drop pinches off the island carrying the icon when something arrives.
+    @Published var liquidSplit: Bool { didSet { defaults.set(liquidSplit, forKey: Key.liquidSplit) } }
     @Published var hudDuration: Double { didSet { defaults.set(hudDuration, forKey: Key.hudDuration) } }
     @Published var notificationDuration: Double { didSet { defaults.set(notificationDuration, forKey: Key.notificationDuration) } }
     @Published var expandOnHover: Bool { didSet { defaults.set(expandOnHover, forKey: Key.expandOnHover) } }
@@ -109,6 +112,7 @@ final class Preferences: ObservableObject {
             Key.accentHex: "#388AD9",
             Key.islandStyle: IslandStyle.notchMerged.rawValue,
             Key.detachFromTopEdge: false,
+            Key.liquidSplit: true,
             Key.hudDuration: 2.4,
             Key.notificationDuration: 4.0,
             Key.expandOnHover: false,
@@ -137,6 +141,7 @@ final class Preferences: ObservableObject {
         islandStyle = IslandStyle(rawValue: defaults.string(forKey: Key.islandStyle) ?? "")
             ?? .notchMerged
         detachFromTopEdge = defaults.bool(forKey: Key.detachFromTopEdge)
+        liquidSplit = defaults.bool(forKey: Key.liquidSplit)
         hudDuration = defaults.double(forKey: Key.hudDuration)
         notificationDuration = defaults.double(forKey: Key.notificationDuration)
         expandOnHover = defaults.bool(forKey: Key.expandOnHover)
