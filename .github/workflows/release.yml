@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version number, e.g. 1.2"
+        description: "Version number, e.g. 1.3"
         required: true
-        default: "1.2"
+        default: "1.3"
       prerelease:
         description: "Test build only (pre-release: the website keeps the current version)"
         type: boolean
@@ -96,9 +96,13 @@ jobs:
       - name: Publish the release
         run: |
           cat > notes.md <<'NOTES'
-          ## New: liquid split
+          ## New: one way to notify
 
-          When something arrives (a charger, AirPods, Focus, a meeting reminder, a notification card), a drop pinches off the island with its icon and melts back in as the island opens to show it. Turn it off in Settings ▸ Appearance ▸ Liquid split. It is skipped when Reduce Motion is on.
+          Every notification now arrives the same way. A drop leaves the side of the notch carrying the icon, and one line of text falls below it as a second drop. Then the icon flows back, the text rises, and the island tucks in. Battery, headphones, Focus, calendar, song changes and your own `isle://notify` commands all work like this, and the motion is smoother throughout.
+
+          The Liquid split setting is gone, since this is now the only style. With Reduce Motion on, there's no drop, so only the text shows. Long messages are cut to one line.
+
+          Also fixed: the low-battery warning no longer repeats each time Isle restarts.
 
           ## Installing
 
