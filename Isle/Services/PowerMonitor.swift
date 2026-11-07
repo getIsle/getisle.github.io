@@ -143,6 +143,11 @@ final class PowerMonitor {
     // MARK: - HUD decisions
 
     private func announceIfInteresting(old: BatterySnapshot, new: BatterySnapshot) {
+        // A new discharge cycle starts from plugging in, so it may warn afresh.
+        if new.powerSource == .acPower {
+            UserDefaults.standard.removeObject(forKey: Self.lastWarnedKey)
+        }
+
         // Plugged in / unplugged is the headline event.
         if old.powerSource != new.powerSource {
             let reason: BatteryHUDReason = (new.powerSource == .acPower) ? .pluggedIn : .unplugged
@@ -167,16 +172,22 @@ final class PowerMonitor {
             && old.percentage > threshold
             && !announcedLowThresholds.contains(threshold) {
             announcedLowThresholds.insert(threshold)
+            UserDefaults.standard.set(threshold, forKey: Self.lastWarnedKey)
             warnLow(new)
             return
         }
     }
 
     private static let lowThresholds = [20, 10, 5]
+    /// The lowest level warned about this discharge cycle, surviving a restart of Isle.
+    private static let lastWarnedKey = "battery.lastWarnedThreshold"
 
     /// Launched (or the widget switched on) while already low and unplugged: the
     /// crossing-based check above would never fire, so warn once now.
     private func warnIfAlreadyLow() {
+        if previous?.powerSource == .acPower {
+            UserDefaults.standard.removeObject(forKey: Self.lastWarnedKey)
+        }
         guard preferences.batteryEnabled,
               let snapshot = previous,
               snapshot.powerSource == .battery,
@@ -184,6 +195,10 @@ final class PowerMonitor {
         else { return }
         // Mark this and every higher threshold as done for this discharge cycle.
         announcedLowThresholds.formUnion(Self.lowThresholds.filter { $0 >= threshold })
+        // Already warned at this level before Isle restarted: don't repeat it.
+        let warned = UserDefaults.standard.integer(forKey: Self.lastWarnedKey)
+        guard warned == 0 || threshold < warned else { return }
+        UserDefaults.standard.set(threshold, forKey: Self.lastWarnedKey)
         warnLow(snapshot)
     }
 

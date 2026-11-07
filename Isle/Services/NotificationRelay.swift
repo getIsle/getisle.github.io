@@ -96,7 +96,7 @@ final class NotificationRelay: NSObject {
     /// Supported URLs — the scriptable surface of Isle:
     ///
     ///   isle://notify?title=…&body=…&app=…&symbol=…&accent=%23FF8800&image=/path.png
-    ///   isle://hud?title=…&subtitle=…&symbol=…&progress=0.6&accent=%23FF8800
+    ///   isle://hud?title=…&subtitle=…&symbol=…&accent=%23FF8800
     ///   isle://expand        — pin the island open
     ///   isle://collapse      — unpin and close it
     ///   isle://toggle        — flip between the two
@@ -179,7 +179,6 @@ final class NotificationRelay: NSObject {
             symbolName: values["symbol"] ?? values["icon"] ?? "sparkles",
             title: values["title"] ?? "",
             subtitle: values["subtitle"],
-            progress: values["progress"].flatMap(Double.init),
             tint: accent,
             image: image
         )

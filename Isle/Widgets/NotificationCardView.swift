@@ -7,18 +7,21 @@
 //  drag springs back.
 //
 
+import AppKit
 import SwiftUI
 
 struct NotificationCardView: View {
 
     let notification: NotchNotification
+    /// Whether the drop below the strip has opened far enough to hold the text.
+    let textVisible: Bool
     let onDismiss: () -> Void
-
-    /// Reserve the strip the camera housing sits in so text never lands under it.
-    @Environment(\.notchTopInset) private var topInset
 
     @State private var dragOffset: CGSize = .zero
     @State private var isDismissing = false
+
+    /// The text surfaces once the drop below has opened.
+    @State private var textProgress: Double = 0
 
     /// Past this much travel we dismiss regardless of speed.
     private let distanceThreshold: CGFloat = 62
@@ -26,37 +29,26 @@ struct NotificationCardView: View {
     private let velocityThreshold: CGFloat = 160
 
     var body: some View {
-        HStack(alignment: .top, spacing: 11) {
-            icon
-
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 5) {
+        // One line, in the drop hanging below the island. The icon is the drop beside it.
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                HStack(spacing: 6) {
                     Text(notification.title)
                         .font(.islandHeadline)
-                        .lineLimit(1)
-                    if let appName = notification.appName {
-                        Text(appName)
-                            .font(.islandMicro)
-                            .foregroundStyle(.white.opacity(IslandInk.quaternary))
-                            .lineLimit(1)
-                    }
+                        .layoutPriority(1)
+                        .textRenderer(SurfacingText(progress: textProgress))
+                    Text(notification.body)
+                        .font(.islandBody)
+                        .foregroundStyle(.white.opacity(IslandInk.secondary + 0.05))
+                        .textRenderer(SurfacingText(progress: textProgress))
                 }
-                Text(notification.body)
-                    .font(.islandBody)
-                    .foregroundStyle(.white.opacity(IslandInk.secondary + 0.05))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
+                .padding(.horizontal, 15)
+                .frame(height: NotchShape.dropHeight)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        // +6 so the icon and title never touch the housing's bottom edge.
-        .padding(.top, topInset + 6)
-        .padding(.bottom, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .opacity(textVisible ? 1 : 0)
+            .animation(.easeInOut(duration: 0.22), value: textVisible)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .foregroundStyle(.white)
         .offset(x: dragOffset.width, y: min(0, dragOffset.height))
         .opacity(opacity)
@@ -65,26 +57,15 @@ struct NotificationCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(notification.title). \(notification.body)")
         .accessibilityAddTraits(.isButton)
-    }
-
-    private var icon: some View {
-        Group {
-            if let image = notification.image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+        .onChange(of: textVisible) { _, visible in
+            guard visible else { return }
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                textProgress = 1
             } else {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(notification.accent.opacity(0.22))
-                    .overlay(
-                        Image(systemName: notification.symbolName)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(notification.accent)
-                    )
+                textProgress = 0
+                withAnimation(.easeOut(duration: 0.65)) { textProgress = 1 }
             }
         }
-        .frame(width: 34, height: 34)
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 
     /// Fades as it is pushed away, which is the visual stand-in for the haptic you
@@ -131,6 +112,53 @@ struct NotificationCardView: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: onDismiss)
+    }
+}
+
+// MARK: - Surfacing text
+
+/// Text that rises into place from below like liquid surfacing: letters come up out
+/// of a blur one after another, left to right, line by line, overshoot a touch and settle.
+/// Works on the laid-out glyphs, so wrapping and truncation are unaffected.
+private struct SurfacingText: TextRenderer, Animatable {
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    private let rise: CGFloat = 10
+
+    var displayPadding: EdgeInsets {
+        EdgeInsets(top: 4, leading: 4, bottom: rise + 4, trailing: 4)
+    }
+
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        for (index, line) in layout.enumerated() {
+            let width = max(1, line.typographicBounds.rect.width)
+            for run in line {
+                for glyph in run {
+                    let across = (glyph.typographicBounds.rect.minX - line.typographicBounds.rect.minX) / width
+                    let start = Double(across) * 0.62 + Double(index) * 0.1
+                    let local = min(1, max(0, (progress - start) / 0.38))
+                    guard local > 0 else { continue }
+
+                    // Rises slightly past its resting place, then drops back.
+                    let back = 1.70158
+                    let t = local - 1
+                    let eased = t * t * ((back + 1) * t + back) + 1
+
+                    var copy = context
+                    copy.opacity = min(1, local * 1.6)
+                    copy.translateBy(x: 0, y: rise * CGFloat(1 - eased))
+                    if local < 1 {
+                        copy.addFilter(.blur(radius: 3.5 * CGFloat(1 - local)))
+                    }
+                    copy.draw(glyph)
+                }
+            }
+        }
     }
 }
 

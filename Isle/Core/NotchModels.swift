@@ -194,8 +194,8 @@ enum CalendarAccess: Equatable {
 
 // MARK: - HUD
 
-/// A transient "something just happened" card shown in the peeked state — the
-/// volume-HUD-style moments: charger plugged in, AirPods connected, Focus changed.
+/// Something that just happened: charger plugged in, AirPods connected, Focus changed.
+/// It only says what happened; it is shown as a notification like everything else.
 struct HUDEvent: Identifiable, Equatable {
     enum Kind: Equatable { case battery, bluetooth, focus, nowPlaying, calendar, generic }
 
@@ -204,21 +204,9 @@ struct HUDEvent: Identifiable, Equatable {
     var symbolName: String
     var title: String
     var subtitle: String?
-    /// When set, draws a thin meter under the title (battery %, volume, …).
-    var progress: Double?
     var tint: Color
     /// Overrides the symbol with real artwork (album art, app icon).
     var image: NSImage?
-
-    /// Where the text goes.
-    ///  • caption — one line *below* the camera (track changes, calendar, AirPods).
-    ///  • side    — glyph left of the camera, short value right of it, no caption.
-    ///              For glanceable values like "15%", exactly like the iPhone's
-    ///              low-battery and silent-mode alerts.
-    enum Layout: Equatable { case caption, side }
-    var layout: Layout = .caption
-
-    var hasCaption: Bool { layout == .caption }
 
     static func == (lhs: HUDEvent, rhs: HUDEvent) -> Bool { lhs.id == rhs.id }
 }
@@ -234,6 +222,11 @@ struct NotchNotification: Identifiable, Equatable {
     var image: NSImage?
     var accent: Color
     var date: Date
+    /// How long it stays; nil for the user's notification setting.
+    var duration: Double?
+    /// A song change. They come round every few minutes, so no side drop, and only the
+    /// newest one waiting is worth showing.
+    var isTrackChange: Bool
 
     init(
         id: UUID = UUID(),
@@ -243,7 +236,9 @@ struct NotchNotification: Identifiable, Equatable {
         symbolName: String = "bell.fill",
         image: NSImage? = nil,
         accent: Color = .white,
-        date: Date = Date()
+        date: Date = Date(),
+        duration: Double? = nil,
+        isTrackChange: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -253,6 +248,8 @@ struct NotchNotification: Identifiable, Equatable {
         self.image = image
         self.accent = accent
         self.date = date
+        self.duration = duration
+        self.isTrackChange = isTrackChange
     }
 
     static func == (lhs: NotchNotification, rhs: NotchNotification) -> Bool { lhs.id == rhs.id }

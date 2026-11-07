@@ -105,14 +105,19 @@ panel, so a gap leaves the housing visible as a dark tab above the capsule.
 
 ### Liquid split
 
-When a HUD or the first notification card arrives while the island is closed or
-resting, a drop pinches off its left side carrying the event's icon, hangs there for
-a beat, and is pulled back in as the island opens to show the event. It is a
-metaball, not two views: the drop and a stand-in for the island's edge are blurred
-together and cut back with an alpha threshold, so a neck forms, thins and snaps
-(`Core/LiquidBud.swift`). Track changes and HUDs that replace one already on screen
-skip it. Turn it off with **Liquid split** in **Settings ▸ Appearance**; it is also
-skipped when Reduce Motion is on.
+There is one way to notify. Everything (a notification, the charger, AirPods, Focus, a
+meeting, a song change) arrives the same way:
+
+1. The closed island swells around the camera, and a drop pinches off its left side
+   carrying the event's icon. It stays out as the only icon.
+2. One line of text falls from the island's bottom edge as a drop: the neck thins and
+   breaks, and the text hangs free below the island.
+3. The icon drop flows back in, then the text closes and rises back.
+4. The island shrinks.
+
+The island stays over the camera throughout. The side drop is drawn in
+`Core/LiquidBud.swift` and the text drop in `Core/NotchShape.swift`. Both are skipped
+when Reduce Motion is on.
 
 ### No notch? Still works
 
@@ -327,7 +332,7 @@ not write. Those would have to opt in, and they will not.
 | URL | Effect |
 |---|---|
 | `isle://notify?title=…&body=…&app=…&symbol=…&accent=%23RRGGBB&image=/path.png` | Notification card |
-| `isle://hud?title=…&subtitle=…&symbol=…&progress=0.6&duration=3&accent=%23RRGGBB` | Transient peek HUD |
+| `isle://hud?title=…&subtitle=…&symbol=…&duration=3&accent=%23RRGGBB` | Transient peek HUD |
 | `isle://expand` / `isle://collapse` / `isle://toggle` | Pin, unpin, flip |
 | `isle://demo` / `isle://demo?clear=1` | Fill every widget with sample data, then clear it |
 

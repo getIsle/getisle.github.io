@@ -55,7 +55,10 @@ struct NotchRootView: View {
         NotchShape(
             style: viewModel.style,
             topRadius: viewModel.topCornerRadius,
-            bottomRadius: viewModel.bottomCornerRadius
+            bottomRadius: viewModel.bottomCornerRadius,
+            hangWidth: viewModel.presentation == .notification ? viewModel.dripWidth : 0,
+            stripHeight: viewModel.notificationStripHeight,
+            stripWidth: viewModel.presentation == .notification ? viewModel.notificationStripWidth : 0
         )
     }
 
@@ -116,12 +119,30 @@ struct NotchRootView: View {
                 LiquidBudLayer(
                     bud: bud,
                     detached: viewModel.budDetached,
-                    stripHeight: viewModel.peekStripHeight,
+                    stripHeight: viewModel.budStripHeight,
+                    joinHeight: viewModel.budJoinHeight,
                     overhang: viewModel.horizontalOverhang
                 )
+                // Stays on the island's edge when the frame is wider than the island.
+                .offset(x: viewModel.presentation == .notification
+                    ? max(0, islandWidth - viewModel.notificationStripWidth) / 2
+                    : 0)
                 .transition(.identity)
             }
         }
+        // While an event is showing, the island glows in its colour. A shadow rather
+        // than a stroke, so nothing is drawn along the top of the screen, and behind
+        // the drop, so it doesn't tint it.
+        .background(
+            shape
+                .fill(Color.black)
+                .shadow(
+                    color: (eventGlowColor ?? .clear).opacity(eventGlowColor == nil ? 0 : 0.75),
+                    radius: eventGlowColor == nil ? 0 : 14,
+                    x: 0,
+                    y: 0
+                )
+        )
         // A plain rectangle, not the silhouette: the path's top edge sits exactly on
         // the screen edge, and a point on a path's boundary can test as outside,
         // which made clicks with the pointer pinned to the top of the screen miss.
@@ -151,6 +172,7 @@ struct NotchRootView: View {
         // is driven by `animateSize`.
         .animation(shapeSpring, value: viewModel.presentation)
         .animation(shapeSpring, value: viewModel.isHoverLifted)
+        .animation(.spring(response: 0.46, dampingFraction: 0.72), value: viewModel.dripWidth)
         .animation(Self.spring, value: viewModel.metrics)
         .onAppear {
             islandWidth = viewModel.contentSize.width
@@ -211,6 +233,14 @@ struct NotchRootView: View {
                 islandWidth = size.width
                 islandHeight = size.height
             }
+
+        case .drip:
+            // Even through the middle, where the neck thins and breaks, so it can be
+            // seen: a spring covers that stretch in a few frames.
+            withAnimation(.timingCurve(0.6, 0, 0.4, 1, duration: 0.75)) {
+                islandWidth = size.width
+                islandHeight = size.height
+            }
         }
     }
 
@@ -220,6 +250,7 @@ struct NotchRootView: View {
         case .close: return Self.closeSpring
         case .hoverIn: return Self.hoverInSpring
         case .hoverOut: return Self.hoverOutSpring
+        case .drip: return Self.openSpring
         }
     }
 
@@ -235,6 +266,13 @@ struct NotchRootView: View {
     /// up the album's colour the way the real Dynamic Island does.
     private var glowColor: Color {
         viewModel.artworkTint ?? preferences.accentColor
+    }
+
+    /// The colour of the drop on its way out, if any.
+    private var eventGlowColor: Color? {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return nil }
+        guard viewModel.currentNotification == nil else { return nil }
+        return viewModel.bud?.tint
     }
 
     // MARK: - Content per state
@@ -253,7 +291,8 @@ struct NotchRootView: View {
             notificationContent
                 .transition(
                     .asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
+                        // The card animates its own icon and text as it appears.
+                        insertion: .opacity.animation(.easeOut(duration: 0.12)),
                         removal: .opacity.combined(with: .scale(scale: 0.94, anchor: .top))
                     )
                 )
@@ -275,6 +314,7 @@ struct NotchRootView: View {
         if let notification = viewModel.currentNotification {
             NotificationCardView(
                 notification: notification,
+                textVisible: viewModel.dripTextVisible,
                 onDismiss: { viewModel.dismissCurrentNotification() }
             )
             .id(notification.id)

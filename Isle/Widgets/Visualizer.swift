@@ -66,23 +66,3 @@ struct MeterBar: View {
         .frame(height: height)
     }
 }
-
-/// Circular progress used in the peeked capsule, where a horizontal bar would fight
-/// the capsule's own geometry.
-struct ProgressRing: View {
-    var value: Double        // 0...1
-    var tint: Color
-    var lineWidth: CGFloat = 2.5
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.white.opacity(0.16), lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: max(0.02, min(1, value)))
-                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
-        .animation(NotchRootView.contentSpring, value: value)
-    }
-}

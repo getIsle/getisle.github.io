@@ -224,7 +224,6 @@ extension HUDEvent {
             symbolName: event.joinURL != nil ? "video.fill" : "calendar",
             title: event.title,
             subtitle: subtitle,
-            progress: nil,
             tint: event.calendarColor,
             image: nil
         )

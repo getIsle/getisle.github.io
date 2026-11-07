@@ -34,8 +34,6 @@ extension Font {
     /// The smallest text we ever draw — app names, secondary chip text.
     static let islandMicro = Font.system(size: 10, weight: .medium).monospacedDigit()
 
-    /// HUD text in the peeked capsule beside the housing.
-    static let islandHUDTitle = Font.system(size: 12, weight: .semibold)
     static let islandHUDSubtitle = Font.system(size: 10, weight: .medium).monospacedDigit()
 }
 
