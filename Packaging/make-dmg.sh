@@ -54,11 +54,15 @@ xcodebuild \
     -derivedDataPath "$BUILD_DIR" \
     ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
     clean build \
-    > "$BUILD_LOG" 2>&1 || true
+    > "$BUILD_LOG" 2>&1 && BUILD_STATUS=0 || BUILD_STATUS=$?
 grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" "$BUILD_LOG" || true
 
+# Check xcodebuild's own verdict and the executable itself. A failed build still
+# leaves a half-made Isle.app folder behind (Info.plist, resources, no binary),
+# so "the .app exists" is not proof of anything.
 APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
-if [ ! -d "$APP" ]; then
+if [ "$BUILD_STATUS" -ne 0 ] || ! grep -q "BUILD SUCCEEDED" "$BUILD_LOG" \
+    || [ ! -x "$APP/Contents/MacOS/$APP_NAME" ]; then
     echo "✗ Build failed. The last lines of the build log ($BUILD_LOG):"
     tail -60 "$BUILD_LOG"
     exit 1
