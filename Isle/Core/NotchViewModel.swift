@@ -104,6 +104,12 @@ final class NotchViewModel: ObservableObject {
     @Published private(set) var hud: HUDEvent?
     @Published private(set) var currentNotification: NotchNotification?
 
+    /// The liquid split's bubble, while one is out (see LiquidBud.swift).
+    /// `budDetached` false means it is inside the island: just budding, or pulled
+    /// back in.
+    @Published private(set) var bud: LiquidBud?
+    @Published private(set) var budDetached = false
+
     /// Progress-bar ticker. Only runs while the island is visibly showing progress,
     /// so a paused, collapsed island costs nothing.
     @Published private(set) var tick: Date = .init()
@@ -112,6 +118,13 @@ final class NotchViewModel: ObservableObject {
     private var hudDismissal: DispatchWorkItem?
     private var notificationDismissal: DispatchWorkItem?
     private var hoverWorkItem: DispatchWorkItem?
+
+    /// What the island shows once the bubble is reabsorbed. Held back so the drop
+    /// visibly carries the event in, instead of the island growing alongside it.
+    private enum ArrivalKind { case hud, notification }
+    private var pendingArrival: (kind: ArrivalKind, apply: () -> Void)?
+    private var budWork: [DispatchWorkItem] = []
+    private var isNotificationArriving = false
     private var ticker: Timer?
 
     private let preferences: Preferences
@@ -447,6 +460,20 @@ final class NotchViewModel: ObservableObject {
     /// Show a transient peek. Later events replace earlier ones — an island only has
     /// one slot, and the newest event is always the interesting one.
     func present(hud event: HUDEvent, duration: Double? = nil) {
+        // Track changes come round every few minutes and already have their own
+        // artwork motion; a drop on every one of them would get old fast.
+        // Neither does a HUD that replaces one already showing get one: the island
+        // is visibly busy, and the new content simply swaps in.
+        if event.kind != .nowPlaying, hud == nil, currentNotification == nil {
+            arrive(.hud, carrying: LiquidBud(hud: event)) { [weak self] in
+                self?.show(hud: event, duration: duration)
+            }
+        } else {
+            show(hud: event, duration: duration)
+        }
+    }
+
+    private func show(hud event: HUDEvent, duration: Double?) {
         hudDismissal?.cancel()
         // The caption makes the island grow even when it was already peeking, so
         // tell the view to use the "open" springs for it.
@@ -477,7 +504,84 @@ final class NotchViewModel: ObservableObject {
     func enqueue(_ notification: NotchNotification, force: Bool = false) {
         guard force || preferences.notificationsEnabled else { return }
         pendingNotifications.append(notification)
-        if currentNotification == nil { showNextNotification() }
+        // A card already on its way in will pick the queue up when it is done.
+        guard currentNotification == nil, !isNotificationArriving else { return }
+        isNotificationArriving = true
+        arrive(.notification, carrying: LiquidBud(notification: notification)) { [weak self] in
+            self?.isNotificationArriving = false
+            self?.showNextNotification()
+        }
+    }
+
+    // MARK: - Liquid split
+
+    /// Whether the island is in a state where budding makes sense: closed or
+    /// resting, on screen, and nobody asked for less motion.
+    private var canBud: Bool {
+        preferences.liquidSplit
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            && !isSuppressed
+            && (presentation == .collapsed || presentation == .peek)
+    }
+
+    /// Sends a drop out of the island, holds it for a beat, then pulls it back in
+    /// and runs `apply`, so the island grows as it swallows the drop.
+    /// If a drop is already out, it takes the newer icon and keeps its timing.
+    private func arrive(_ kind: ArrivalKind, carrying newBud: LiquidBud, apply: @escaping () -> Void) {
+        if pendingArrival != nil {
+            // Same drop, newer content. `bud` is equal by id, so swapping it in
+            // does not restart the split.
+            bud?.symbolName = newBud.symbolName
+            bud?.tint = newBud.tint
+            bud?.image = newBud.image
+            if pendingArrival?.kind == kind {
+                pendingArrival = (kind, apply)
+            } else {
+                // A HUD and a card racing each other: show the earlier one when
+                // the drop goes back in, and the later one straight after.
+                let earlier = pendingArrival!.apply
+                pendingArrival = (pendingArrival!.kind, { earlier(); apply() })
+            }
+            return
+        }
+
+        guard canBud else {
+            apply()
+            return
+        }
+
+        budWork.forEach { $0.cancel() }
+        budWork.removeAll()
+
+        budDetached = false
+        bud = newBud
+        pendingArrival = (kind, apply)
+
+        // Next turn of the run loop, so the bubble is first drawn inside the
+        // island and *then* moves out, rather than appearing already out.
+        schedule(after: 0.02) { [weak self] in self?.budDetached = true }
+        schedule(after: 0.62) { [weak self] in
+            guard let self else { return }
+            let apply = self.pendingArrival?.apply
+            self.pendingArrival = nil
+            self.mergeBud()
+            apply?()
+        }
+    }
+
+    private func mergeBud() {
+        guard bud != nil else { return }
+        budDetached = false
+        schedule(after: 0.4) { [weak self] in
+            guard let self, !self.budDetached else { return }
+            self.bud = nil
+        }
+    }
+
+    private func schedule(after delay: Double, _ block: @escaping () -> Void) {
+        let work = DispatchWorkItem(block: block)
+        budWork.append(work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     private func showNextNotification() {

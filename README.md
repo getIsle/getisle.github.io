@@ -103,6 +103,17 @@ the bezel, which looks great on a display with no notch. On notched hardware lea
 off: the camera housing is a physical black cutout running to the very top of the
 panel, so a gap leaves the housing visible as a dark tab above the capsule.
 
+### Liquid split
+
+When a HUD or the first notification card arrives while the island is closed or
+resting, a drop pinches off its left side carrying the event's icon, hangs there for
+a beat, and is pulled back in as the island opens to show the event. It is a
+metaball, not two views: the drop and a stand-in for the island's edge are blurred
+together and cut back with an alpha threshold, so a neck forms, thins and snaps
+(`Core/LiquidBud.swift`). Track changes and HUDs that replace one already on screen
+skip it. Turn it off with **Liquid split** in **Settings ▸ Appearance**; it is also
+skipped when Reduce Motion is on.
+
 ### No notch? Still works
 
 `NSScreen.safeAreaInsets.top > 0` detects a real notch, and

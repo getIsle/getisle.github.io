@@ -178,6 +178,11 @@ private struct AppearancePane: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                Toggle("Liquid split", isOn: $preferences.liquidSplit)
+                Text("When something arrives, a drop pinches off the island carrying its icon, then melts back in as the island opens. Off when Reduce Motion is on.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Accent colour") {

@@ -109,6 +109,19 @@ struct NotchRootView: View {
                     y: 2
                 )
         )
+        // Behind the island, so only the neck and the drop show, and the drop's
+        // icon disappears under the island as it is pulled back in.
+        .background(alignment: .topLeading) {
+            if let bud = viewModel.bud {
+                LiquidBudLayer(
+                    bud: bud,
+                    detached: viewModel.budDetached,
+                    stripHeight: viewModel.peekStripHeight,
+                    overhang: viewModel.horizontalOverhang
+                )
+                .transition(.identity)
+            }
+        }
         // A plain rectangle, not the silhouette: the path's top edge sits exactly on
         // the screen edge, and a point on a path's boundary can test as outside,
         // which made clicks with the pointer pinned to the top of the screen miss.
