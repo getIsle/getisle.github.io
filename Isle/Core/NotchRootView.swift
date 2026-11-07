@@ -127,6 +127,8 @@ struct NotchRootView: View {
                 .offset(x: viewModel.presentation == .notification
                     ? max(0, islandWidth - viewModel.notificationStripWidth) / 2
                     : 0)
+                // Glides with the island when it narrows, as when music was showing.
+                .animation(shapeSpring, value: viewModel.presentation)
                 .transition(.identity)
             }
         }
@@ -235,9 +237,8 @@ struct NotchRootView: View {
             }
 
         case .drip:
-            // Even through the middle, where the neck thins and breaks, so it can be
-            // seen: a spring covers that stretch in a few frames.
-            withAnimation(.timingCurve(0.6, 0, 0.4, 1, duration: 0.75)) {
+            // Slow and heavy, so the neck can be seen thinning and breaking.
+            withAnimation(.spring(response: 0.78, dampingFraction: 0.74)) {
                 islandWidth = size.width
                 islandHeight = size.height
             }

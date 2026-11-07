@@ -63,7 +63,7 @@ struct NotificationCardView: View {
                 textProgress = 1
             } else {
                 textProgress = 0
-                withAnimation(.easeOut(duration: 0.65)) { textProgress = 1 }
+                withAnimation(.spring(response: 0.7, dampingFraction: 1)) { textProgress = 1 }
             }
         }
     }

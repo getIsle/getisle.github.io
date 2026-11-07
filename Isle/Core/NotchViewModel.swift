@@ -555,15 +555,16 @@ final class NotchViewModel: ObservableObject {
         // First the island swells, so there is mass to give up. Then the drop leaves,
         // and the island shrinks back as it does, because the drop took that mass.
         setSwell(Self.swellToSplit, motion: .open)
-        let swellTime = 0.38
+        let swellTime = 0.26
         // Only now: the hidden drop is taller than the unswollen island, and would
         // show beneath it.
         schedule(after: swellTime - 0.06) { [weak self] in self?.bud = newBud }
         schedule(after: swellTime) { [weak self] in self?.budDetached = true }
-        schedule(after: swellTime + 0.15) { [weak self] in
+        schedule(after: swellTime + 0.05) { [weak self] in
             self?.setSwell(Self.swellWhileApart, motion: .close)
         }
-        schedule(after: swellTime + LiquidBudLayer.splitDuration + 0.1) { [weak self] in
+        // The text starts while the icon is still settling: one movement, not two.
+        schedule(after: swellTime + LiquidBudLayer.splitDuration * 0.7) { [weak self] in
             guard let self else { return }
             let apply = self.pendingArrival
             self.pendingArrival = nil
@@ -624,23 +625,23 @@ final class NotchViewModel: ObservableObject {
         }
         notificationDismissal = work
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + (next.duration ?? preferences.notificationDuration) + 1.3,
+            deadline: .now() + (next.duration ?? preferences.notificationDuration) + 0.7,
             execute: work
         )
     }
 
     /// A bead falls and breaks free, then opens sideways, then the text surfaces in it.
     private func openDrip(for id: NotchNotification.ID) {
-        afterDelay(0.3, for: id) { [weak self] in
+        afterDelay(0.02, for: id) { [weak self] in
             guard let self, !self.dripIsClosing else { return }
             self.motion = .drip
             self.dripIsDown = true
         }
-        afterDelay(1.13, for: id) { [weak self] in
+        afterDelay(0.62, for: id) { [weak self] in
             guard let self, !self.dripIsClosing else { return }
             self.dripWidth = self.dripTargetWidth
         }
-        afterDelay(1.28, for: id) { [weak self] in
+        afterDelay(0.72, for: id) { [weak self] in
             guard let self, !self.dripIsClosing else { return }
             self.dripTextVisible = true
         }
@@ -651,22 +652,22 @@ final class NotchViewModel: ObservableObject {
     private func closeDrip(for id: NotchNotification.ID, then finish: @escaping () -> Void) {
         guard !dripIsClosing else { return }
         dripIsClosing = true
-        let iconTime = bud == nil ? 0 : LiquidBudLayer.mergeDuration * 0.75
+        let iconTime = bud == nil ? 0 : LiquidBudLayer.mergeDuration * 0.4
         mergeBud()
         afterDelay(iconTime, for: id) { [weak self] in self?.dripTextVisible = false }
-        afterDelay(iconTime + 0.2, for: id) { [weak self] in self?.dripWidth = Self.dripBead }
-        afterDelay(iconTime + 0.5, for: id) { [weak self] in
+        afterDelay(iconTime + 0.1, for: id) { [weak self] in self?.dripWidth = Self.dripBead }
+        afterDelay(iconTime + 0.28, for: id) { [weak self] in
             self?.motion = .drip
             self?.dripIsDown = false
         }
-        afterDelay(iconTime + 1.3, for: id) { [weak self] in
+        afterDelay(iconTime + 0.95, for: id) { [weak self] in
             // At once, not animated: the bead is already inside the strip, and a
             // shrinking one would show as a nub if the island changes height.
             var instant = Transaction()
             instant.disablesAnimations = true
             withTransaction(instant) { self?.dripWidth = 0 }
         }
-        afterDelay(iconTime + 1.45, for: id, finish)
+        afterDelay(iconTime + 0.85, for: id, finish)
     }
 
     /// Runs only if the same notification is still showing: a swipe can end it early.

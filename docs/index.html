@@ -846,43 +846,51 @@ function makeLiquid(root, filterId) {
     <div class="lq-text" role="status" aria-live="polite"></div>`);
   const D = world.querySelector('.d'), B = world.querySelector('.b'), T = world.querySelector('.t');
   const mark = world.querySelector('.lq-mark'), text = world.querySelector('.lq-text');
-  const smooth = x => x * x * (3 - 2 * x), BEAD = 16;
+  const BEAD = 16;
   const REST = [100, 120, 36], SWELL = [88, 144, 44], APART = [98, 124, 38];
   const IN = [108, 34, 22], OUT = [44, 40, 26];
   let textW = 160, playing = false, next = null, raf = 0;
 
-  // time, drop, island, text [width, y]
-  const keys = hold => {
-    const h = hold, K = [
-      [0, IN, REST, [BEAD, 14]], [.1, IN, REST, [BEAD, 14]],
-      [.42, IN, SWELL, [BEAD, 14]],
-      [.9, [78, 38, 25], APART, [BEAD, 14]],
-      [1.2, [58, 40, 26], APART, [BEAD, 14]],
-      [1.55, OUT, APART, [BEAD, 14]],
-      [1.7, OUT, APART, [BEAD, 14]],
-      [2.45, OUT, APART, [BEAD, 50]],
-      [2.85, OUT, APART, [textW, 50]],
-      [2.85 + h, OUT, APART, [textW, 50]],
-      [3.25 + h, [58, 40, 26], APART, [textW, 50]],
-      [3.65 + h, IN, APART, [textW, 50]],
-      [3.85 + h, IN, APART, [textW, 50]],
-      [4.2 + h, IN, APART, [BEAD, 50]],
-      [4.95 + h, IN, APART, [BEAD, 14]],
-      [5.3 + h, IN, REST, [BEAD, 14]]
-    ];
-    return K;
+  // What each shape is heading for, and when. Springs carry them there, so the shapes have
+  // weight and the stages run into each other instead of stopping and starting.
+  const targets = hold => [
+    [0, IN, SWELL, [BEAD, 14]],
+    [.3, OUT, APART, [BEAD, 14]],
+    [1, OUT, APART, [BEAD, 50]],
+    [1.6, OUT, APART, [textW, 50]],
+    [2.3 + hold, IN, APART, [textW, 50]],
+    [2.6 + hold, IN, APART, [BEAD, 50]],
+    [2.8 + hold, IN, APART, [BEAD, 14]],
+    [3.5 + hold, IN, REST, [BEAD, 14]]
+  ];
+  const SPRINGS = { d: [62, 11], b: [150, 19], t: [70, 13] };
+  const fresh = () => ({ d: [...IN], b: [...REST], t: [BEAD, 14], vd: [0, 0, 0], vb: [0, 0, 0], vt: [0, 0] });
+  const advance = (st, tg, dt) => {
+    [['d', 'vd', tg[1]], ['b', 'vb', tg[2]], ['t', 'vt', tg[3]]].forEach(([k, v, to]) => {
+      const [stiff, damp] = SPRINGS[k];
+      to.forEach((goal, j) => {
+        st[v][j] += (stiff * (goal - st[k][j]) - damp * st[v][j]) * dt;
+        st[k][j] += st[v][j] * dt;
+      });
+    });
   };
-  const paint = (K, t) => {
-    let i = 0; while (i < K.length - 2 && K[i + 1][0] <= t) i++;
-    const a = K[i], b = K[i + 1], p = smooth(Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0] || 1))));
-    const mix = (u, v) => u.map((n, j) => n + (v[j] - n) * p);
-    const d = mix(a[1], b[1]), s = mix(a[2], b[2]), x = mix(a[3], b[3]);
+  const paintState = st => {
+    const d = st.d, s = st.b, x = st.t;
     D.setAttribute('x', d[0]); D.setAttribute('y', 19 - d[2] / 2); D.setAttribute('width', d[1]); D.setAttribute('height', d[2]); D.setAttribute('rx', d[2] / 2);
     B.setAttribute('x', s[0]); B.setAttribute('y', -30); B.setAttribute('width', s[1]); B.setAttribute('height', s[2] + 30); B.setAttribute('rx', s[2] * .36);
     const th = x[0] <= BEAD + .5 ? 22 : 24;
-    text.style.left = 160 - x[0] / 2 + 'px'; text.style.width = x[0] + 'px'; // the text can never show outside its drop
-    T.setAttribute('x', 160 - x[0] / 2); T.setAttribute('y', x[1] - 2); T.setAttribute('width', x[0]); T.setAttribute('height', th); T.setAttribute('rx', Math.min(x[0], th) / 2);
+    text.style.left = 160 - x[0] / 2 + 'px'; text.style.width = Math.max(0, x[0]) + 'px'; // the text can never show outside its drop
+    T.setAttribute('x', 160 - x[0] / 2); T.setAttribute('y', x[1] - 2); T.setAttribute('width', Math.max(0, x[0])); T.setAttribute('height', th); T.setAttribute('rx', Math.max(0, Math.min(x[0], th)) / 2);
     return d;
+  };
+  // Runs the springs from the start to time t, in fixed small steps.
+  const simulate = (st, tl, from, to) => {
+    const h = 1 / 240;
+    for (let t = from; t < to; t += h) {
+      let i = 0; while (i < tl.length - 1 && tl[i + 1][0] <= t) i++;
+      advance(st, tl[i], h);
+    }
+    return st;
   };
   const place = (d, o) => {
     const mh = d[2] - 7, mw = d[1] - 7;
@@ -903,24 +911,26 @@ function makeLiquid(root, filterId) {
   const fit = () => root.style.setProperty('--k', Math.min(root.querySelector('.lq-screen').clientWidth / 320, 2.1).toFixed(3));
   fit();
   if ('ResizeObserver' in window) new ResizeObserver(fit).observe(root); else addEventListener('resize', fit);
-  paint(keys(0), 0); place(IN, 0);
+  paintState(fresh()); place(IN, 0);
 
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // The icon shows only once its drop is clear of the island, and the text once its own has opened.
+  const iconShown = st => Math.max(0, Math.min(1, (96 - (st.d[0] + st.d[1])) / 8));
+  const textShown = (t, hold) => t > 1.7 && t < 2.45 + hold;
   function run(ev, done) {
     playing = true; dress(ev);
-    const hold = ev.hold || 2.2, K = keys(hold), total = K[K.length - 1][0];
+    const hold = ev.hold || 2.4, tl = targets(hold), total = 4.6 + hold, st = fresh();
     if (calm) {
-      const d = paint(K, 2.9); place(d, 1); text.classList.add('on');
-      setTimeout(() => { text.classList.remove('on'); paint(K, 0); place(IN, 0); finish(done); }, hold * 1000 + 1000);
+      simulate(st, tl, 0, 2.2); place(paintState(st), 1); text.classList.add('on');
+      setTimeout(() => { text.classList.remove('on'); paintState(fresh()); place(IN, 0); finish(done); }, hold * 1000 + 1000);
       return;
     }
-    const start = performance.now();
+    const start = performance.now(); let sim = 0;
     (function step(now) {
-      const t = (now - start) / 1000;
-      const d = paint(K, t);
-      const free = t < 1.2 ? 0 : t < 1.5 ? (t - 1.2) / .3 : t < 2.85 + hold ? 1 : t < 3.15 + hold ? (3.15 + hold - t) / .3 : 0;
-      place(d, free);
-      text.classList.toggle('on', t > 2.95 && t < 3.5 + hold);
+      const t = Math.min(total, (now - start) / 1000);
+      simulate(st, tl, sim, t); sim = t;
+      place(paintState(st), iconShown(st));
+      text.classList.toggle('on', textShown(t, hold));
       if (t < total) { raf = requestAnimationFrame(step); return; }
       finish(done);
     })(start);
@@ -929,7 +939,7 @@ function makeLiquid(root, filterId) {
   return {
     play(ev, done) { if (playing) { next = { ev, done }; return; } run(ev, done); },
     get busy() { return playing; },
-    seek(t, ev, hold) { cancelAnimationFrame(raf); if (ev) dress(ev); const K = keys(hold || 2.2); const d = paint(K, t); place(d, t > 1.5 && t < 2.85 + (hold || 2.2) ? 1 : 0); text.classList.toggle('on', t > 2.95 && t < 3.5 + (hold || 2.2)); }
+    seek(t, ev, hold) { cancelAnimationFrame(raf); if (ev) dress(ev); const h = hold || 2.4, st = simulate(fresh(), targets(h), 0, t); place(paintState(st), iconShown(st)); text.classList.toggle('on', textShown(t, h)); }
   };
 }
 const ISLE_EVENTS = {
