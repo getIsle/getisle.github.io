@@ -144,6 +144,9 @@ final class NotchViewModel: ObservableObject {
     private var hudDismissal: DispatchWorkItem?
     private var notificationDismissal: DispatchWorkItem?
     private var hoverWorkItem: DispatchWorkItem?
+    /// Where the pending hover change is heading, so more pointer movement toward
+    /// the same place leaves its timer running instead of starting it over.
+    private var pendingHover: Bool?
 
     /// What the island shows once the bubble is reabsorbed. Held back so the drop
     /// visibly carries the event in, instead of the island growing alongside it.
@@ -427,7 +430,7 @@ final class NotchViewModel: ObservableObject {
     /// leaves. (Use the pin, the menu bar item or isle://expand to keep it open.)
     func openFromClick() {
         guard presentation != .expanded else { return }
-        hoverWorkItem?.cancel()
+        cancelPendingHover()
         isClickOpened = true
         // The click itself proves the pointer is here, even if the hover debounce
         // has not caught up yet.
@@ -452,9 +455,15 @@ final class NotchViewModel: ObservableObject {
     /// Debounced so that merely sweeping the pointer across the top of the screen on
     /// the way to a menu bar item does not fling the island open.
     func setHoverTarget(_ hovering: Bool) {
-        hoverWorkItem?.cancel()
-
-        if hovering == isHovering { return }
+        if hovering == isHovering {
+            cancelPendingHover()
+            return
+        }
+        // Every mouse move lands here. Restarting the timer on each one meant the
+        // lift waited until the pointer stopped, so a smooth glide onto the notch
+        // got nothing until it slowed down.
+        if pendingHover == hovering { return }
+        cancelPendingHover()
 
         // Hover-to-open keeps the user's debounce so sweeping past the notch on the
         // way to a menu doesn't fling it open. The lift is harmless, so it reacts
@@ -462,10 +471,18 @@ final class NotchViewModel: ObservableObject {
         let enterDelay = preferences.expandOnHover ? preferences.hoverDelay : 0.04
         let delay = hovering ? enterDelay : 0.12
         let work = DispatchWorkItem { [weak self] in
+            self?.pendingHover = nil
             self?.isHovering = hovering
         }
         hoverWorkItem = work
+        pendingHover = hovering
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private func cancelPendingHover() {
+        hoverWorkItem?.cancel()
+        hoverWorkItem = nil
+        pendingHover = nil
     }
 
     func togglePin() {
@@ -479,7 +496,7 @@ final class NotchViewModel: ObservableObject {
     }
 
     func collapseNow() {
-        hoverWorkItem?.cancel()
+        cancelPendingHover()
         isPinned = false
         isClickOpened = false
         isHovering = false
