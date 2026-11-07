@@ -20,6 +20,8 @@ set -euo pipefail
 
 # Optional: "Developer ID Application: Your Name (TEAMID)" — leave empty for ad-hoc.
 DEVELOPER_ID="${DEVELOPER_ID:-}"
+# Optional: override the version number baked into the app (e.g. VERSION=1.2).
+VERSION_OVERRIDE="${VERSION:-}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -41,17 +43,24 @@ step() { printf "\n\033[1;35m▸ %s\033[0m\n" "$1"; }
 
 # ── 1. Build ────────────────────────────────────────────────────────────────
 step "Building $APP_NAME (Release)…"
+mkdir -p "$BUILD_DIR"
+BUILD_LOG="$BUILD_DIR/xcodebuild.log"
+VERSION_ARGS=()
+if [ -n "$VERSION_OVERRIDE" ]; then VERSION_ARGS=(MARKETING_VERSION="$VERSION_OVERRIDE"); fi
 xcodebuild \
     -project "$APP_NAME.xcodeproj" \
     -scheme "$APP_NAME" \
     -configuration Release \
     -derivedDataPath "$BUILD_DIR" \
+    ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
     clean build \
-    | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" || true
+    > "$BUILD_LOG" 2>&1 || true
+grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" "$BUILD_LOG" || true
 
 APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
 if [ ! -d "$APP" ]; then
-    echo "✗ Build failed — run the xcodebuild command above without the grep to see why."
+    echo "✗ Build failed. The last lines of the build log ($BUILD_LOG):"
+    tail -60 "$BUILD_LOG"
     exit 1
 fi
 
@@ -155,4 +164,5 @@ fi
 
 SIZE="$(du -h "$FINAL_DMG" | cut -f1)"
 printf "\n\033[1;32m✓ %s  (%s)\033[0m\n" "$FINAL_DMG" "$SIZE"
-open -R "$FINAL_DMG"
+# Reveal it in Finder, except on a build server where nobody is looking.
+if [ -z "${CI:-}" ]; then open -R "$FINAL_DMG"; fi

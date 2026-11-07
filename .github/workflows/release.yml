@@ -1,0 +1,86 @@
+# Builds Isle on a GitHub-hosted Mac and publishes Isle.dmg as a GitHub Release.
+#
+# Run it from the Actions tab: Release ▸ Run workflow, and type the version.
+# The website's Download button points at releases/latest/download/Isle.dmg,
+# so once this finishes, the website hands out the new version.
+#
+# If the build fails, nothing is published and the website keeps the old version.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number, e.g. 1.2"
+        required: true
+        default: "1.2"
+      prerelease:
+        description: "Test build only (pre-release: the website keeps the current version)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version is new
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+            echo "::error::Version must look like 1.2 or 1.2.1, got '$VERSION'"
+            exit 1
+          fi
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Release v$VERSION already exists. Pick a new version number."
+            exit 1
+          fi
+
+      - name: Show Xcode
+        run: xcodebuild -version
+
+      - name: Build the disk image
+        run: ./Packaging/make-dmg.sh
+
+      - name: Check the build
+        run: |
+          test -f dist/Isle.dmg
+          ls -lh dist/Isle.dmg
+
+      - name: Keep the disk image with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Isle-${{ inputs.version }}
+          path: dist/Isle.dmg
+          if-no-files-found: error
+
+      - name: Publish the release
+        run: |
+          cat > notes.md <<'NOTES'
+          ## New: liquid split
+
+          When something arrives (a charger, AirPods, Focus, a meeting reminder, a notification card), a drop pinches off the island with its icon and melts back in as the island opens to show it. Turn it off in Settings ▸ Appearance ▸ Liquid split. It is skipped when Reduce Motion is on.
+
+          ## Installing
+
+          Open `Isle.dmg` and drag Isle into Applications. The first time only, macOS will stop it: open System Settings ▸ Privacy & Security, scroll down and click **Open Anyway** next to Isle.
+          NOTES
+          flags=()
+          if [ "${{ inputs.prerelease }}" = "true" ]; then flags+=(--prerelease); else flags+=(--latest); fi
+          gh release create "v$VERSION" dist/Isle.dmg \
+            --target "$GITHUB_SHA" \
+            --title "Isle $VERSION" \
+            --notes-file notes.md \
+            "${flags[@]}"
