@@ -19,6 +19,10 @@ on:
         description: "Test build only (pre-release: the website keeps the current version)"
         type: boolean
         default: false
+      replace:
+        description: "Replace this version if it already exists (deletes it first, so the website falls back to the previous version until the new build is out)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -44,12 +48,28 @@ jobs:
             exit 1
           fi
           if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "::error::Release v$VERSION already exists. Pick a new version number."
-            exit 1
+            if [ "${{ inputs.replace }}" = "true" ]; then
+              echo "Deleting the existing v$VERSION so it can be rebuilt."
+              gh release delete "v$VERSION" --cleanup-tag --yes
+            else
+              echo "::error::Release v$VERSION already exists. Pick a new version number, or tick Replace."
+              exit 1
+            fi
           fi
 
-      - name: Show Xcode
-        run: xcodebuild -version
+      # Isle uses the macOS 26 SDK (Liquid Glass in the onboarding window), so
+      # build with the newest Xcode on the machine, not the image's default.
+      - name: Pick the newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          newest="$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)"
+          sudo xcode-select -s "$newest/Contents/Developer"
+          xcodebuild -version
+          major="$(xcodebuild -version | awk 'NR==1{split($2,v,"."); print v[1]}')"
+          if [ "$major" -lt 26 ]; then
+            echo "::error::Isle needs Xcode 26 or later; the newest here is $(xcodebuild -version | head -1)."
+            exit 1
+          fi
 
       - name: Build the disk image
         run: ./Packaging/make-dmg.sh
@@ -58,6 +78,13 @@ jobs:
         run: |
           test -f dist/Isle.dmg
           ls -lh dist/Isle.dmg
+          # Look inside the disk image: the app must have its executable.
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" dist/Isle.dmg >/dev/null
+          trap 'hdiutil detach "$mnt" >/dev/null 2>&1 || true' EXIT
+          test -x "$mnt/Isle.app/Contents/MacOS/Isle"
+          file "$mnt/Isle.app/Contents/MacOS/Isle"
+          /usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$mnt/Isle.app/Contents/Info.plist"
 
       - name: Keep the disk image with this run
         uses: actions/upload-artifact@v4
