@@ -92,7 +92,7 @@ final class NotchViewModel: ObservableObject {
     /// What kind of size change happened last, so the view can pick the right
     /// spring. Opening overshoots a little, closing settles without bounce, and the
     /// hover "lift" is a quick, springy nudge.
-    enum Motion: Equatable { case open, close, hoverIn, hoverOut }
+    enum Motion: Equatable { case open, close, hoverIn, hoverOut, drip }
     @Published private(set) var motion: Motion = .open
 
     var isGrowing: Bool { motion == .open || motion == .hoverIn }
@@ -101,14 +101,40 @@ final class NotchViewModel: ObservableObject {
     /// Measured off Alcove: 179×32 → 192×37 on a 14" MacBook Pro.
     @Published private(set) var isHoverLifted = false
     private let hoverLift = CGSize(width: 14, height: 5)
-    @Published private(set) var hud: HUDEvent?
-    @Published private(set) var currentNotification: NotchNotification?
+    @Published private(set) var currentNotification: NotchNotification? {
+        didSet {
+            guard currentNotification == nil else { return }
+            dripIsDown = false
+            dripWidth = 0
+            dripTextVisible = false
+            dripIsClosing = false
+        }
+    }
+
+    /// The notification's text hangs from the island as a drop: `dripIsDown` stretches
+    /// it down as a bead, `dripWidth` opens it, then `dripTextVisible` shows the line.
+    @Published private(set) var dripIsDown = false
+    @Published private(set) var dripWidth: CGFloat = 0
+    @Published private(set) var dripTextVisible = false
+    private var dripIsClosing = false
+    private static let dripHeight: CGFloat = NotchShape.dropHeight + 10
+    private static let dripBead: CGFloat = 20
+    private static let dripMaxWidth: CGFloat = 340
 
     /// The liquid split's bubble, while one is out (see LiquidBud.swift).
     /// `budDetached` false means it is inside the island: just budding, or pulled
     /// back in.
     @Published private(set) var bud: LiquidBud?
     @Published private(set) var budDetached = false
+    /// The camera strip's height when the drop set out. Fixed for its whole trip:
+    /// the island may grow into a card meanwhile, and the drop must not grow with it.
+    @Published private(set) var budStripHeight: CGFloat = 0
+    /// How much the closed island swells around the camera for a drop to leave it.
+    /// A notch-sized island has too little mass to give up: the drop would be small,
+    /// and easy to miss.
+    @Published private(set) var budSwell: CGSize = .zero
+    private static let swellToSplit = CGSize(width: 44, height: 8)
+    static let swellWhileApart = CGSize(width: 12, height: 6)
 
     /// Progress-bar ticker. Only runs while the island is visibly showing progress,
     /// so a paused, collapsed island costs nothing.
@@ -121,8 +147,7 @@ final class NotchViewModel: ObservableObject {
 
     /// What the island shows once the bubble is reabsorbed. Held back so the drop
     /// visibly carries the event in, instead of the island growing alongside it.
-    private enum ArrivalKind { case hud, notification }
-    private var pendingArrival: (kind: ArrivalKind, apply: () -> Void)?
+    private var pendingArrival: (() -> Void)?
     private var budWork: [DispatchWorkItem] = []
     private var isNotificationArriving = false
     private var ticker: Timer?
@@ -150,7 +175,6 @@ final class NotchViewModel: ObservableObject {
     /// content is padded on BOTH sides rather than pressed against the curve.
     ///   resting media peek: 10 inset + 24 artwork + 6 gap
     ///   HUD peek:           10 inset + glyph + text/ring + 6 gap
-    private let peekFlank: CGFloat = PeekContentView.edgeInset + 50
     private let mediaIdleFlank: CGFloat = PeekContentView.edgeInset + 30
 
     /// How much taller than the notch the floating capsule sits, so it reads as a
@@ -206,14 +230,31 @@ final class NotchViewModel: ObservableObject {
         )
     }
 
+    /// The island itself stays slim, just around the camera. The frame is only wider to
+    /// hold the text drop hanging below it.
     var notificationSize: CGSize {
-        // Everything in the card sits *below* the housing: notch strip + title +
-        // two lines of body + bottom padding. The old fixed 74 pt could not fit two
-        // body lines, and the centred content then crept up under the camera.
         CGSize(
-            width: max(340, metrics.notchSize.width + 150),
-            height: metrics.notchSize.height + 64
+            width: max(notificationStripWidth, dripTargetWidth),
+            height: notificationStripHeight + (dripIsDown ? Self.dripHeight : 0)
         )
+    }
+
+    var notificationStripWidth: CGFloat { metrics.notchSize.width + Self.swellWhileApart.width }
+
+    var notificationStripHeight: CGFloat {
+        metrics.notchSize.height + (style == .floating ? floatingLift : mergedLift)
+    }
+
+    /// The one line of text, measured, so the drop opens to fit it.
+    private var dripTargetWidth: CGFloat {
+        guard let notification = currentNotification else { return 0 }
+        let title = (notification.title as NSString).size(
+            withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold)]
+        ).width
+        let body = (notification.body as NSString).size(
+            withAttributes: [.font: NSFont.systemFont(ofSize: 12)]
+        ).width
+        return min(Self.dripMaxWidth, ceil(title + body) + 6 + 30)
     }
 
     /// The island's target size for the current presentation. The view animates
@@ -224,6 +265,10 @@ final class NotchViewModel: ObservableObject {
             size.width += hoverLift.width
             size.height += hoverLift.height
         }
+        if presentation == .collapsed || presentation == .peek {
+            size.width += budSwell.width
+            size.height += budSwell.height
+        }
         return size
     }
 
@@ -232,17 +277,11 @@ final class NotchViewModel: ObservableObject {
         case .collapsed:
             return metrics.notchSize
         case .peek:
-            // The resting mini player is deliberately narrower than a HUD: it is on
-            // screen for the whole album, so it has to stay unobtrusive.
-            let flank = hud == nil ? mediaIdleFlank : peekFlank
+            // On screen for the whole album, so it has to stay unobtrusive.
             return CGSize(
-                width: metrics.notchSize.width + flank * 2,
+                width: metrics.notchSize.width + mediaIdleFlank * 2,
                 height: metrics.notchSize.height
                     + (style == .floating ? floatingLift : mergedLift)
-                    // A HUD drops a caption line *below* the housing, like the
-                    // iPhone does when a track changes, instead of cramming text
-                    // into the narrow strip beside the camera.
-                    + (hud?.hasCaption == true ? Self.hudCaptionHeight : 0)
             )
         case .notification:
             return notificationSize
@@ -265,7 +304,7 @@ final class NotchViewModel: ObservableObject {
             switch presentation {
             case .collapsed: return metrics.topCornerRadius
             case .peek: return 9
-            case .notification: return 14
+            case .notification: return 9
             case .expanded: return 16
             }
         case .floating:
@@ -295,15 +334,15 @@ final class NotchViewModel: ObservableObject {
             //   collapsed 179×32 → ~10    hover 192×37 → ~11    panel → ~34
             switch presentation {
             case .collapsed: return metrics.bottomCornerRadius
-            case .peek: return hud?.hasCaption == true ? 20 : 15
-            case .notification: return 26
+            case .peek: return 15
+            case .notification: return 15
             case .expanded: return 38
             }
         case .notchMerged:
             switch presentation {
             case .collapsed: return metrics.bottomCornerRadius
-            case .peek: return hud?.hasCaption == true ? 20 : 15
-            case .notification: return 26
+            case .peek: return 15
+            case .notification: return 15
             case .expanded: return 36
             }
         }
@@ -311,14 +350,8 @@ final class NotchViewModel: ObservableObject {
 
     var isOpen: Bool { presentation != .collapsed }
 
-    /// Height of the caption line a HUD adds under the housing.
-    static let hudCaptionHeight: CGFloat = 26
-
-    /// Height of the strip level with the camera (art · housing · bars) while
-    /// peeking — the island's height minus any HUD caption below it.
-    var peekStripHeight: CGFloat {
-        contentSize.height - (presentation == .peek && hud?.hasCaption == true ? Self.hudCaptionHeight : 0)
-    }
+    /// Height of the strip level with the camera (art · housing · bars) while peeking.
+    var peekStripHeight: CGFloat { contentSize.height }
 
     /// The Up Next row is shown whenever there is an event coming up. When the
     /// calendar is empty, "nothing on your calendar" is only worth the space when
@@ -361,8 +394,6 @@ final class NotchViewModel: ObservableObject {
             next = .expanded
         } else if currentNotification != nil {
             next = .notification
-        } else if hud != nil {
-            next = .peek
         } else if showsRestingMediaPeek {
             next = .peek
         } else {
@@ -455,59 +486,42 @@ final class NotchViewModel: ObservableObject {
         recomputePresentation()
     }
 
-    // MARK: - HUD events
+    // MARK: - Events
 
-    /// Show a transient peek. Later events replace earlier ones — an island only has
-    /// one slot, and the newest event is always the interesting one.
+    /// Something happened: shown the same way as every other notification.
     func present(hud event: HUDEvent, duration: Double? = nil) {
-        // Track changes come round every few minutes and already have their own
-        // artwork motion; a drop on every one of them would get old fast.
-        // Neither does a HUD that replaces one already showing get one: the island
-        // is visibly busy, and the new content simply swaps in.
-        if event.kind != .nowPlaying, hud == nil, currentNotification == nil {
-            arrive(.hud, carrying: LiquidBud(hud: event)) { [weak self] in
-                self?.show(hud: event, duration: duration)
-            }
-        } else {
-            show(hud: event, duration: duration)
-        }
-    }
-
-    private func show(hud event: HUDEvent, duration: Double?) {
-        hudDismissal?.cancel()
-        // The caption makes the island grow even when it was already peeking, so
-        // tell the view to use the "open" springs for it.
-        motion = .open
-        hud = event
-        recomputePresentation()
-
-        let window = duration ?? preferences.hudDuration
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, self.hud?.id == event.id else { return }
-            self.motion = .close
-            self.hud = nil
-            self.recomputePresentation()
-        }
-        hudDismissal = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + window, execute: work)
-    }
-
-    func dismissHUD() {
-        hudDismissal?.cancel()
-        motion = .close
-        hud = nil
-        recomputePresentation()
+        enqueue(
+            NotchNotification(
+                title: event.title,
+                body: event.subtitle ?? "",
+                symbolName: event.symbolName,
+                image: event.image,
+                accent: event.tint,
+                duration: duration ?? preferences.hudDuration,
+                isTrackChange: event.kind == .nowPlaying
+            ),
+            force: true
+        )
     }
 
     // MARK: - Notification cards
 
     func enqueue(_ notification: NotchNotification, force: Bool = false) {
         guard force || preferences.notificationsEnabled else { return }
+        if notification.isTrackChange {
+            pendingNotifications.removeAll { $0.isTrackChange }
+        }
         pendingNotifications.append(notification)
-        // A card already on its way in will pick the queue up when it is done.
+        // One already on its way in will pick the queue up when it is done.
         guard currentNotification == nil, !isNotificationArriving else { return }
+        bringNextNotification()
+    }
+
+    /// The next in the queue arrives on a drop from the island's side.
+    private func bringNextNotification() {
+        guard let upcoming = pendingNotifications.first else { return }
         isNotificationArriving = true
-        arrive(.notification, carrying: LiquidBud(notification: notification)) { [weak self] in
+        arrive(carrying: LiquidBud(notification: upcoming)) { [weak self] in
             self?.isNotificationArriving = false
             self?.showNextNotification()
         }
@@ -518,33 +532,14 @@ final class NotchViewModel: ObservableObject {
     /// Whether the island is in a state where budding makes sense: closed or
     /// resting, on screen, and nobody asked for less motion.
     private var canBud: Bool {
-        preferences.liquidSplit
-            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             && !isSuppressed
             && (presentation == .collapsed || presentation == .peek)
     }
 
-    /// Sends a drop out of the island, holds it for a beat, then pulls it back in
-    /// and runs `apply`, so the island grows as it swallows the drop.
-    /// If a drop is already out, it takes the newer icon and keeps its timing.
-    private func arrive(_ kind: ArrivalKind, carrying newBud: LiquidBud, apply: @escaping () -> Void) {
-        if pendingArrival != nil {
-            // Same drop, newer content. `bud` is equal by id, so swapping it in
-            // does not restart the split.
-            bud?.symbolName = newBud.symbolName
-            bud?.tint = newBud.tint
-            bud?.image = newBud.image
-            if pendingArrival?.kind == kind {
-                pendingArrival = (kind, apply)
-            } else {
-                // A HUD and a card racing each other: show the earlier one when
-                // the drop goes back in, and the later one straight after.
-                let earlier = pendingArrival!.apply
-                pendingArrival = (pendingArrival!.kind, { earlier(); apply() })
-            }
-            return
-        }
-
+    /// The island swells, and a drop leaves its side carrying the icon. The drop stays
+    /// out as the notification's only icon; `apply` runs once it has settled.
+    private func arrive(carrying newBud: LiquidBud, apply: @escaping () -> Void) {
         guard canBud else {
             apply()
             return
@@ -554,25 +549,41 @@ final class NotchViewModel: ObservableObject {
         budWork.removeAll()
 
         budDetached = false
-        bud = newBud
-        pendingArrival = (kind, apply)
+        budStripHeight = peekStripHeight + Self.swellToSplit.height
+        pendingArrival = apply
 
-        // Next turn of the run loop, so the bubble is first drawn inside the
-        // island and *then* moves out, rather than appearing already out.
-        schedule(after: 0.02) { [weak self] in self?.budDetached = true }
-        schedule(after: 0.62) { [weak self] in
-            guard let self else { return }
-            let apply = self.pendingArrival?.apply
-            self.pendingArrival = nil
-            self.mergeBud()
-            apply?()
+        // First the island swells, so there is mass to give up. Then the drop leaves,
+        // and the island shrinks back as it does, because the drop took that mass.
+        setSwell(Self.swellToSplit, motion: .open)
+        let swellTime = 0.38
+        // Only now: the hidden drop is taller than the unswollen island, and would
+        // show beneath it.
+        schedule(after: swellTime - 0.06) { [weak self] in self?.bud = newBud }
+        schedule(after: swellTime) { [weak self] in self?.budDetached = true }
+        schedule(after: swellTime + 0.15) { [weak self] in
+            self?.setSwell(Self.swellWhileApart, motion: .close)
         }
+        schedule(after: swellTime + LiquidBudLayer.splitDuration + 0.1) { [weak self] in
+            guard let self else { return }
+            let apply = self.pendingArrival
+            self.pendingArrival = nil
+            apply?()
+            self.budSwell = .zero
+        }
+    }
+
+    /// Height of the island while the drop is apart from it, for the drop to fit.
+    var budJoinHeight: CGFloat { budStripHeight - Self.swellToSplit.height + Self.swellWhileApart.height }
+
+    private func setSwell(_ swell: CGSize, motion newMotion: Motion) {
+        motion = newMotion
+        budSwell = swell
     }
 
     private func mergeBud() {
         guard bud != nil else { return }
         budDetached = false
-        schedule(after: 0.4) { [weak self] in
+        schedule(after: LiquidBudLayer.mergeDuration + 0.05) { [weak self] in
             guard let self, !self.budDetached else { return }
             self.bud = nil
         }
@@ -593,26 +604,97 @@ final class NotchViewModel: ObservableObject {
             return
         }
 
+        // Another is waiting: this one has closed, and the next arrives like the first.
+        if currentNotification != nil {
+            currentNotification = nil
+            recomputePresentation()
+            bringNextNotification()
+            return
+        }
+
         let next = pendingNotifications.removeFirst()
         currentNotification = next
+        dripWidth = Self.dripBead
         recomputePresentation()
+        openDrip(for: next.id)
 
         let work = DispatchWorkItem { [weak self] in
             guard let self, self.currentNotification?.id == next.id else { return }
-            self.showNextNotification()
+            self.closeDrip(for: next.id) { [weak self] in self?.showNextNotification() }
         }
         notificationDismissal = work
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + preferences.notificationDuration,
+            deadline: .now() + (next.duration ?? preferences.notificationDuration) + 1.3,
             execute: work
         )
+    }
+
+    /// A bead falls and breaks free, then opens sideways, then the text surfaces in it.
+    private func openDrip(for id: NotchNotification.ID) {
+        afterDelay(0.3, for: id) { [weak self] in
+            guard let self, !self.dripIsClosing else { return }
+            self.motion = .drip
+            self.dripIsDown = true
+        }
+        afterDelay(1.13, for: id) { [weak self] in
+            guard let self, !self.dripIsClosing else { return }
+            self.dripWidth = self.dripTargetWidth
+        }
+        afterDelay(1.28, for: id) { [weak self] in
+            guard let self, !self.dripIsClosing else { return }
+            self.dripTextVisible = true
+        }
+    }
+
+    /// One thing at a time: the icon flows home, then the text fades, and its drop
+    /// narrows to a bead and rises back. Only then may the island shrink.
+    private func closeDrip(for id: NotchNotification.ID, then finish: @escaping () -> Void) {
+        guard !dripIsClosing else { return }
+        dripIsClosing = true
+        let iconTime = bud == nil ? 0 : LiquidBudLayer.mergeDuration * 0.75
+        mergeBud()
+        afterDelay(iconTime, for: id) { [weak self] in self?.dripTextVisible = false }
+        afterDelay(iconTime + 0.2, for: id) { [weak self] in self?.dripWidth = Self.dripBead }
+        afterDelay(iconTime + 0.5, for: id) { [weak self] in
+            self?.motion = .drip
+            self?.dripIsDown = false
+        }
+        afterDelay(iconTime + 1.3, for: id) { [weak self] in
+            // At once, not animated: the bead is already inside the strip, and a
+            // shrinking one would show as a nub if the island changes height.
+            var instant = Transaction()
+            instant.disablesAnimations = true
+            withTransaction(instant) { self?.dripWidth = 0 }
+        }
+        afterDelay(iconTime + 1.45, for: id, finish)
+    }
+
+    /// Runs only if the same notification is still showing: a swipe can end it early.
+    private func afterDelay(_ delay: Double, for id: NotchNotification.ID, _ block: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard self?.currentNotification?.id == id else { return }
+            block()
+        }
     }
 
     /// Called by the swipe-to-dismiss gesture and by taps on the card.
     func dismissCurrentNotification() {
         notificationDismissal?.cancel()
-        currentNotification = nil
-        showNextNotification()
+        guard let current = currentNotification else {
+            showNextNotification()
+            return
+        }
+        // The same careful order as when it times out, so the icon has gone before the
+        // island shrinks. No side drop afterwards: it was dismissed by hand.
+        closeDrip(for: current.id) { [weak self] in
+            guard let self else { return }
+            if self.pendingNotifications.isEmpty {
+                self.currentNotification = nil
+                self.recomputePresentation()
+            } else {
+                self.showNextNotification()
+            }
+        }
     }
 
     // MARK: - Playhead ticker

@@ -111,7 +111,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                 symbolName: "sparkles",
                                 title: "Isle is ready",
                                 subtitle: "Hover the notch",
-                                progress: nil,
                                 tint: .white,
                                 image: nil
                             ),

@@ -68,7 +68,7 @@ struct IslandArtworkLayer: View {
                 isVisible: true
             )
 
-        case .peek where media != nil && (viewModel.hud == nil || viewModel.hud?.kind == .nowPlaying):
+        case .peek where media != nil:
             let diameter = PeekContentView.artworkDiameter(for: viewModel)
             return Placement(
                 origin: CGPoint(
@@ -102,6 +102,7 @@ struct IslandArtworkLayer: View {
         case .close: return .spring(response: 0.34, dampingFraction: 0.95)
         case .hoverIn: return NotchRootView.hoverInSpring
         case .hoverOut: return NotchRootView.hoverOutSpring
+        case .drip: return .spring(response: 0.34, dampingFraction: 0.95)
         }
     }
 

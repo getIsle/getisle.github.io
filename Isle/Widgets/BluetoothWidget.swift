@@ -80,7 +80,6 @@ extension HUDEvent {
             symbolName: connected ? device.symbolName : "bolt.horizontal.circle",
             title: device.name,
             subtitle: connected ? (level.map { "\($0)%" } ?? "Connected") : "Disconnected",
-            progress: connected ? level.map { Double($0) / 100.0 } : nil,
             tint: connected ? .white : .white.opacity(0.6),
             image: nil
         )
@@ -92,7 +91,6 @@ extension HUDEvent {
             symbolName: status.isActive ? status.symbolName : "moon.slash",
             title: status.isActive ? status.name : "Focus Off",
             subtitle: status.isActive ? "Focus On" : nil,
-            progress: nil,
             tint: .purple,
             image: nil
         )
@@ -104,7 +102,6 @@ extension HUDEvent {
             symbolName: "music.note",
             title: media.title,
             subtitle: media.artist.isEmpty ? media.album : media.artist,
-            progress: nil,
             tint: .white,
             image: media.artwork
         )

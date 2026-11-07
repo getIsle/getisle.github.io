@@ -55,22 +55,112 @@ struct NotchShape: Shape {
     var style: IslandStyle
     var topRadius: CGFloat
     var bottomRadius: CGFloat
+    /// Width of the drop hanging from the strip; 0 for no drop. Everything in the rect
+    /// below `stripHeight` is the drop, so it stretches as the frame grows downward.
+    var hangWidth: CGFloat = 0
+    var stripHeight: CGFloat = 0
+    /// The island's own width when the frame is wider, to hold the drop; 0 for the frame.
+    var stripWidth: CGFloat = 0
 
     /// Lets SwiftUI interpolate the corner radii during the expand/collapse spring,
     /// so the corners ease open as the island grows rather than snapping.
-    var animatableData: AnimatablePair<CGFloat, CGFloat> {
-        get { AnimatablePair(topRadius, bottomRadius) }
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat> {
+        get { AnimatablePair(AnimatablePair(topRadius, bottomRadius), hangWidth) }
         set {
-            topRadius = newValue.first
-            bottomRadius = newValue.second
+            topRadius = newValue.first.first
+            bottomRadius = newValue.first.second
+            hangWidth = newValue.second
         }
     }
 
     func path(in rect: CGRect) -> Path {
+        var strip = rect
+        if stripWidth > 0, stripWidth < rect.width {
+            strip.origin.x = rect.midX - stripWidth / 2
+            strip.size.width = stripWidth
+        }
+        guard hangWidth > 0.5, stripHeight > 0, rect.height > stripHeight + 0.5 else {
+            return basePath(in: strip)
+        }
+        strip.size.height = stripHeight
+        return basePath(in: strip).union(hangingDrop(in: rect))
+    }
+
+    private func basePath(in rect: CGRect) -> Path {
         switch style {
         case .floating: return floatingPath(in: rect)
         case .notchMerged: return mergedPath(in: rect)
         }
+    }
+
+    // MARK: Hanging drop
+
+    /// Height of the drop itself; anything the rect has beyond that is the gap between
+    /// it and the strip.
+    static let dropHeight: CGFloat = 26
+    /// How far the drop has fallen when the neck breaks.
+    private static let snapGap: CGFloat = 7
+
+    /// A drop falling from the strip. As the rect grows it comes out as a bead on a
+    /// neck; the neck thins and snaps, the tips pull back, and the drop hangs free.
+    private func hangingDrop(in rect: CGRect) -> Path {
+        let stripBottom = rect.minY + stripHeight
+        let fallen = rect.maxY - stripBottom
+        let height = min(fallen, Self.dropHeight)
+        let gap = max(0, fallen - Self.dropHeight)
+        let width = min(hangWidth, rect.width)
+        let drop = CGRect(x: rect.midX - width / 2, y: rect.maxY - height, width: width, height: height)
+
+        var path = Path(roundedRect: drop, cornerRadius: min(height, width) / 2, style: .continuous)
+        let half = min(width / 2, 10)
+        let centre = rect.midX
+
+        guard gap < Self.snapGap else {
+            let left = 1 - min(1, (gap - Self.snapGap) / 3)
+            guard left > 0 else { return path }
+            addTip(to: &path, centre: centre, baseY: stripBottom - 1, tipY: stripBottom + 2.5 * left, base: 1 + 2 * left)
+            addTip(to: &path, centre: centre, baseY: drop.minY + 1, tipY: drop.minY - 2.5 * left, base: 1 + 2 * left)
+            return path
+        }
+
+        let closeness = 1 - gap / Self.snapGap
+        let waist = half * pow(closeness, 1.3) * 0.9
+        let flare = 3 + 6 * closeness
+        let middleY = stripBottom + gap / 2
+        let dropJoin = drop.minY + min(height / 2, half)
+
+        var neck = Path()
+        neck.move(to: CGPoint(x: centre - waist - flare, y: stripBottom - 1))
+        neck.addCurve(
+            to: CGPoint(x: centre - waist, y: middleY),
+            control1: CGPoint(x: centre - waist - flare * 0.2, y: stripBottom - 1),
+            control2: CGPoint(x: centre - waist, y: stripBottom + gap * 0.2)
+        )
+        neck.addCurve(
+            to: CGPoint(x: centre - half, y: dropJoin),
+            control1: CGPoint(x: centre - waist, y: middleY + gap * 0.3),
+            control2: CGPoint(x: centre - half, y: drop.minY)
+        )
+        neck.addLine(to: CGPoint(x: centre + half, y: dropJoin))
+        neck.addCurve(
+            to: CGPoint(x: centre + waist, y: middleY),
+            control1: CGPoint(x: centre + half, y: drop.minY),
+            control2: CGPoint(x: centre + waist, y: middleY + gap * 0.3)
+        )
+        neck.addCurve(
+            to: CGPoint(x: centre + waist + flare, y: stripBottom - 1),
+            control1: CGPoint(x: centre + waist, y: stripBottom + gap * 0.2),
+            control2: CGPoint(x: centre + waist + flare * 0.2, y: stripBottom - 1)
+        )
+        neck.closeSubpath()
+        return path.union(neck)
+    }
+
+    private func addTip(to path: inout Path, centre: CGFloat, baseY: CGFloat, tipY: CGFloat, base: CGFloat) {
+        path.move(to: CGPoint(x: centre - base, y: baseY))
+        path.addQuadCurve(to: CGPoint(x: centre, y: tipY), control: CGPoint(x: centre - base * 0.3, y: (baseY + tipY) / 2))
+        path.addQuadCurve(to: CGPoint(x: centre + base, y: baseY), control: CGPoint(x: centre + base * 0.3, y: (baseY + tipY) / 2))
+        path.closeSubpath()
     }
 
     // MARK: Floating capsule

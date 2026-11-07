@@ -72,10 +72,8 @@ extension HUDEvent {
             symbolName: snapshot.symbolName,
             title: title,
             subtitle: "\(snapshot.percentage)%",
-            progress: Double(snapshot.percentage) / 100.0,
             tint: snapshot.tint,
-            image: nil,
-            layout: .side
+            image: nil
         )
     }
 }
