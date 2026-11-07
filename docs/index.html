@@ -1209,12 +1209,17 @@ details[open]{background:rgba(255,255,255,.92);border-color:rgba(36,28,96,.16)}
       b.style.background = colors[i % colors.length]; b.style.left = x + 'px'; b.style.top = y + 'px';
       document.body.append(b);
       const ang = -Math.PI / 2 + (Math.random() - .5) * Math.PI * 1.2, v = 110 + Math.random() * 190;
-      const dx = Math.cos(ang) * v, dy = Math.sin(ang) * v, rot = (Math.random() - .5) * 900;
+      // Slow on purpose: a quick pop up, then a long, swaying drift down, so the
+      // burst can actually be watched instead of flashing past.
+      const dx = Math.cos(ang) * v, dy = Math.sin(ang) * v, rot = (Math.random() - .5) * 450;
+      const sway = (Math.random() < .5 ? -1 : 1) * (14 + Math.random() * 18);
       b.animate([
-        { transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 },
-        { transform: `translate(calc(-50% + ${dx * .75}px), calc(-50% + ${dy * .8}px)) rotate(${rot * .5}deg)`, opacity: 1, offset: .4 },
-        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy + 260}px)) rotate(${rot}deg)`, opacity: 0 }
-      ], { duration: 1200 + Math.random() * 500, easing: 'cubic-bezier(.2,.7,.4,1)' }).onfinish = () => b.remove();
+        { transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1, easing: 'cubic-bezier(.2,.7,.4,1)' },
+        { transform: `translate(calc(-50% + ${dx * .8}px), calc(-50% + ${dy * .85}px)) rotate(${rot * .25}deg)`, opacity: 1, offset: .22, easing: 'ease-in-out' },
+        { transform: `translate(calc(-50% + ${dx + sway}px), calc(-50% + ${dy + 70}px)) rotate(${rot * .55}deg)`, opacity: 1, offset: .5, easing: 'ease-in-out' },
+        { transform: `translate(calc(-50% + ${dx - sway}px), calc(-50% + ${dy + 170}px)) rotate(${rot * .8}deg)`, opacity: .85, offset: .78, easing: 'ease-in' },
+        { transform: `translate(calc(-50% + ${dx + sway * .5}px), calc(-50% + ${dy + 260}px)) rotate(${rot}deg)`, opacity: 0 }
+      ], { duration: 2800 + Math.random() * 900, easing: 'linear' }).onfinish = () => b.remove();
     }
   }
   document.querySelectorAll('a[href$="Isle.dmg"], .kofi').forEach(a => a.addEventListener('click', () => {
