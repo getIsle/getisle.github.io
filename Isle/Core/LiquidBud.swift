@@ -57,13 +57,13 @@ struct LiquidBudLayer: View {
     /// Room around the drop for its wobble and any overshoot.
     static let margin: CGFloat = 20
 
-    /// Unhurried and nearly even through the middle, where the neck forms, thins and
-    /// snaps: a spring covers that stretch in a few frames and it reads as a pop, not
-    /// as water. Eased at both ends so the drop swells away and settles.
-    static let splitDuration = 1.2
-    static let mergeDuration = 0.9
-    static let splitSpring = Animation.timingCurve(0.6, 0, 0.4, 1, duration: splitDuration)
-    static let mergeSpring = Animation.timingCurve(0.45, 0, 0.35, 1, duration: mergeDuration)
+    /// Springs, so the drop has weight: it leaves with momentum, overshoots a little
+    /// and settles by itself. A fixed curve starts and stops dead, and reads as mechanical.
+    static let splitSpring = Animation.spring(response: 0.95, dampingFraction: 0.68)
+    static let mergeSpring = Animation.spring(response: 0.72, dampingFraction: 0.86)
+    /// How long each takes to look finished, for what follows it to start from.
+    static let splitDuration = 1.0
+    static let mergeDuration = 0.75
 
     /// Nearly the height of the island it left, and clear of the top of the screen.
     private var dropHeight: CGFloat { max(20, stripHeight - 10) }
@@ -171,16 +171,10 @@ private struct LiquidBudCanvas: View, Animatable {
 
         // Thick as it leaves the island, slimming to its own size by the time it breaks.
         let slimming = smooth((distance + hidden * 0.5) / (hidden * 0.5 + snap))
-        var height = mix(strip * 0.5, min(dropHeight, strip - 12), slimming)
-        var width = mix(dropWidth * 0.8, dropWidth * 0.96, slimming)
+        let height = mix(strip * 0.5, min(dropHeight, strip - 12), slimming)
+        let width = mix(dropWidth * 0.8, dropWidth * 0.96, slimming)
 
-        // Freed, it stretches and squashes a little before coming to rest.
         let settled = clamp((distance - snap) / (farthest - snap))
-        if distance > snap {
-            let wobble = sin(settled * .pi * 2) * (1 - settled) * 0.13
-            width *= 1 + wobble
-            height *= 1 - wobble
-        }
 
         let drop = CGRect(x: dropRight - width, y: centreY - height / 2, width: width, height: height)
         return Liquid(
@@ -199,8 +193,8 @@ private struct LiquidBudCanvas: View, Animatable {
         guard distance < snap else {
             let left = 1 - clamp((distance - snap) / (span * 0.75))
             guard left > 0 else { return path }
-            let length = snap * 0.42 * left
-            let base = 1 + 2.5 * left
+            let length = snap * 0.5 * left
+            let base = 0.5 + 2 * left
             addTip(to: &path, baseX: wall + 1, tipX: wall - length, centreY: centreY, base: base)
             addTip(to: &path, baseX: dropRight - 1, tipX: dropRight + length, centreY: centreY, base: base)
             return path
