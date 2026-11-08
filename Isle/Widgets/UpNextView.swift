@@ -53,7 +53,7 @@ struct UpNextView: View {
             .buttonStyle(.plain)
 
         case .granted:
-            if let event = viewModel.upcomingEvents.first(where: { $0.end > now }) {
+            if let event = viewModel.upcomingEvents.filter({ $0.end > now }).ownEventsFirst.first {
                 eventRow(event, now: now)
             } else {
                 placeholder(symbol: "calendar", text: "No upcoming events")

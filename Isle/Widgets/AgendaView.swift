@@ -49,8 +49,9 @@ struct AgendaView: View {
             } else {
                 // Nothing left today: say so in one quiet line, then carry on with
                 // the next days, nearest first.
-                let todayIsDone = !Calendar.current.isDate(upcoming[0].start, inSameDayAs: now)
-                    && !upcoming[0].isOngoing(at: now)
+                let todayIsDone = !upcoming.contains {
+                    Calendar.current.isDate($0.start, inSameDayAs: now) || $0.isOngoing(at: now)
+                }
                 VStack(alignment: .leading, spacing: 6) {
                     if todayIsDone {
                         Text("Nothing else today")
@@ -58,7 +59,7 @@ struct AgendaView: View {
                             .foregroundStyle(.white.opacity(IslandInk.tertiary))
                             .padding(.horizontal, 5)
                     }
-                    ForEach(Array(upcoming.prefix(todayIsDone ? maxRows - 1 : maxRows))) { event in
+                    ForEach(Array(upcoming.ownEventsFirst.prefix(todayIsDone ? maxRows - 1 : maxRows))) { event in
                         AgendaRow(event: event, now: now)
                     }
                 }

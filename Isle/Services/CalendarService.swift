@@ -144,7 +144,8 @@ final class CalendarService {
                     && !Self.isDeclined(event)
             }
             .sorted { $0.startDate < $1.startDate }
-            .prefix(10)
+            // Generous: two weeks of holidays must not crowd out the user's events.
+            .prefix(60)
             .map(Self.makeEvent)
 
         viewModel.upcomingEvents = Array(events)
@@ -204,8 +205,17 @@ final class CalendarService {
             location: event.location,
             joinURL: joinURL(for: event),
             eventIdentifier: event.eventIdentifier,
-            isAllDay: event.isAllDay
+            isAllDay: event.isAllDay,
+            isFromSubscribedCalendar: isFollowed(event)
         )
+    }
+
+    /// Holidays and birthdays: a subscribed or birthday calendar, or a whole-day
+    /// event on a calendar the user cannot edit (some holiday calendars sync that way).
+    private static func isFollowed(_ event: EKEvent) -> Bool {
+        guard let calendar = event.calendar else { return false }
+        if calendar.type == .subscription || calendar.type == .birthday { return true }
+        return event.isAllDay && !calendar.allowsContentModifications
     }
 
     private static let meetingHosts = [
