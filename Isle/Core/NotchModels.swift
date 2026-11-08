@@ -182,6 +182,8 @@ struct CalendarEvent: Identifiable, Equatable {
     var joinURL: URL?
     /// EventKit identifier, for opening the event in Calendar.
     var eventIdentifier: String?
+    /// Festivals, holidays, birthdays: a whole day rather than a time.
+    var isAllDay: Bool = false
 
     func isOngoing(at date: Date = Date()) -> Bool { start <= date && date < end }
 }

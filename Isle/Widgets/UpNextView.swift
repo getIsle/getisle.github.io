@@ -158,16 +158,20 @@ struct UpNextView: View {
         return formatter
     }()
 
-    /// "10:30 – 11:00 · in 12 min", "Now · until 11:00", "Tomorrow · 09:00 – 09:30".
+    /// "10:30 – 11:00 · in 12 min", "Now · until 11:00", "Tomorrow · 09:00 – 09:30",
+    /// "Wed 12 · 09:00 – 09:30".
     static func detail(for event: CalendarEvent, now: Date) -> String {
         let start = timeFormatter.string(from: event.start)
         let end = timeFormatter.string(from: event.end)
 
+        if event.isAllDay {
+            return "\(allDayLabel(for: event, now: now)) · All day"
+        }
         if event.isOngoing(at: now) {
             return "Now · until \(end)"
         }
-        if !Calendar.current.isDate(event.start, inSameDayAs: now) {
-            return "Tomorrow · \(start) – \(end)"
+        if let day = dayLabel(for: event.start, now: now) {
+            return "\(day) · \(start) – \(end)"
         }
         if let relative = shortRelative(for: event, now: now) {
             return "\(start) – \(end) · \(relative)"
@@ -175,8 +179,23 @@ struct UpNextView: View {
         return "\(start) – \(end)"
     }
 
+    /// nil for today, then "Tomorrow", then "Wed 12" for later days.
+    static func dayLabel(for date: Date, now: Date) -> String? {
+        let calendar = Calendar.current
+        if calendar.isDate(date, inSameDayAs: now) { return nil }
+        if calendar.isDateInTomorrow(date) { return "Tomorrow" }
+        return date.formatted(.dateTime.weekday(.abbreviated).day())
+    }
+
+    /// "Today", "Tomorrow" or "Wed 12" for a whole-day event. One that began
+    /// earlier and is still running counts as today.
+    static func allDayLabel(for event: CalendarEvent, now: Date) -> String {
+        event.isOngoing(at: now) ? "Today" : (dayLabel(for: event.start, now: now) ?? "Today")
+    }
+
     /// "in 12 min" / "in 1 h 20 min" for today's events; nil otherwise.
     static func shortRelative(for event: CalendarEvent, now: Date) -> String? {
+        guard !event.isAllDay else { return nil }
         let seconds = event.start.timeIntervalSince(now)
         guard seconds > 0, Calendar.current.isDate(event.start, inSameDayAs: now) else {
             return nil
