@@ -3,7 +3,7 @@
 //  Isle
 //
 //  Reads upcoming events with EventKit (public API, one permission prompt) and:
-//   • publishes today's and tomorrow's remaining events for the Up Next row, and
+//   • publishes the next two weeks of events, nearest first, for the agenda, and
 //   • peeks the island with a reminder N minutes before an event and again when it
 //     starts, the way the iPhone surfaces a Live Activity.
 //
@@ -34,8 +34,8 @@ final class CalendarService {
     /// "eventID|soon" / "eventID|now" — each reminder fires once per event.
     private var announced = Set<String>()
 
-    /// How far ahead the Up Next row looks.
-    private let lookaheadDays = 2
+    /// How far ahead the agenda looks, so a quiet day still shows what comes next.
+    private let lookaheadDays = 14
 
     init(viewModel: NotchViewModel, preferences: Preferences) {
         self.viewModel = viewModel
@@ -139,13 +139,13 @@ final class CalendarService {
 
         let events = store.events(matching: predicate)
             .filter { event in
-                !event.isAllDay
-                    && event.endDate > now
+                event.endDate > now
                     && event.status != .canceled
                     && !Self.isDeclined(event)
             }
             .sorted { $0.startDate < $1.startDate }
-            .prefix(10)
+            // Generous: two weeks of holidays must not crowd out the user's events.
+            .prefix(60)
             .map(Self.makeEvent)
 
         viewModel.upcomingEvents = Array(events)
@@ -166,7 +166,8 @@ final class CalendarService {
         if announced.count > 500 { announced.removeAll() }
         let lead = TimeInterval(preferences.calendarAlertMinutes * 60)
 
-        for event in viewModel.upcomingEvents {
+        // A festival "starts" at midnight; there is nothing to remind about.
+        for event in viewModel.upcomingEvents where !event.isAllDay {
             let untilStart = event.start.timeIntervalSince(now)
 
             if lead > 0, untilStart > 0, untilStart <= lead,
@@ -203,8 +204,18 @@ final class CalendarService {
             calendarTitle: event.calendar?.title ?? "",
             location: event.location,
             joinURL: joinURL(for: event),
-            eventIdentifier: event.eventIdentifier
+            eventIdentifier: event.eventIdentifier,
+            isAllDay: event.isAllDay,
+            isFromSubscribedCalendar: isFollowed(event)
         )
+    }
+
+    /// Holidays and birthdays: a subscribed or birthday calendar, or a whole-day
+    /// event on a calendar the user cannot edit (some holiday calendars sync that way).
+    private static func isFollowed(_ event: EKEvent) -> Bool {
+        guard let calendar = event.calendar else { return false }
+        if calendar.type == .subscription || calendar.type == .birthday { return true }
+        return event.isAllDay && !calendar.allowsContentModifications
     }
 
     private static let meetingHosts = [

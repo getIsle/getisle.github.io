@@ -182,8 +182,20 @@ struct CalendarEvent: Identifiable, Equatable {
     var joinURL: URL?
     /// EventKit identifier, for opening the event in Calendar.
     var eventIdentifier: String?
+    /// Festivals, holidays, birthdays: a whole day rather than a time.
+    var isAllDay: Bool = false
+    /// From a calendar the user follows rather than fills in: holidays, birthdays.
+    var isFromSubscribedCalendar: Bool = false
 
     func isOngoing(at date: Date = Date()) -> Bool { start <= date && date < end }
+}
+
+extension Array where Element == CalendarEvent {
+    /// The user's own events first, nearest first, then holidays and birthdays,
+    /// nearest first. With little room, a festival never pushes out a meeting.
+    var ownEventsFirst: [CalendarEvent] {
+        filter { !$0.isFromSubscribedCalendar } + filter { $0.isFromSubscribedCalendar }
+    }
 }
 
 enum CalendarAccess: Equatable {

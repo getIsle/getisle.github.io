@@ -2,7 +2,7 @@
 //  AgendaView.swift
 //  Isle
 //
-//  Right half of the split ("Side by side") panel: today's agenda.
+//  Right half of the split ("Side by side") panel: the agenda, nearest first.
 //
 //      ┌───────── music ─────────┬──[housing]──┬──── agenda ─────┐
 //      │ [art]                   │             │          Fri 25 │ ← right gutter
@@ -43,12 +43,23 @@ struct AgendaView: View {
             // Drop the list below the camera housing, whatever its depth.
             Color.clear.frame(height: max(4, viewModel.metrics.notchSize.height + 6 - NowPlayingWidget.artworkTop - 16))
 
-            let events = Array(viewModel.upcomingEvents.filter { $0.end > now }.prefix(maxRows))
-            if events.isEmpty {
+            let upcoming = viewModel.upcomingEvents.filter { $0.end > now }
+            if upcoming.isEmpty {
                 emptyState
             } else {
+                // Nothing left today: say so in one quiet line, then carry on with
+                // the next days, nearest first.
+                let todayIsDone = !upcoming.contains {
+                    Calendar.current.isDate($0.start, inSameDayAs: now) || $0.isOngoing(at: now)
+                }
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(events) { event in
+                    if todayIsDone {
+                        Text("Nothing else today")
+                            .font(.islandMicro)
+                            .foregroundStyle(.white.opacity(IslandInk.tertiary))
+                            .padding(.horizontal, 5)
+                    }
+                    ForEach(Array(upcoming.ownEventsFirst.prefix(todayIsDone ? maxRows - 1 : maxRows))) { event in
                         AgendaRow(event: event, now: now)
                     }
                 }
@@ -73,7 +84,7 @@ struct AgendaView: View {
         VStack(spacing: 6) {
             Image(systemName: "calendar")
                 .font(.system(size: 18, weight: .medium))
-            Text("No more events today")
+            Text("No upcoming events")
                 .font(.islandBody)
         }
         .foregroundStyle(.white.opacity(IslandInk.tertiary))
@@ -107,7 +118,7 @@ private struct AgendaRow: View {
 
             Spacer(minLength: 4)
 
-            if let url = event.joinURL, event.start.timeIntervalSince(now) < 10 * 60 {
+            if let url = event.joinURL, !event.isAllDay, event.start.timeIntervalSince(now) < 10 * 60 {
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
@@ -136,14 +147,17 @@ private struct AgendaRow: View {
     }
 
     /// Compact version of Up Next's line: "Now · until 11:00", "10:30 · in 12 min",
-    /// "Tomorrow · 09:00".
+    /// "Tomorrow · 09:00", "Wed 12 · 09:00".
     private var timeLine: String {
         let start = event.start.formatted(date: .omitted, time: .shortened)
+        if event.isAllDay {
+            return "\(UpNextView.allDayLabel(for: event, now: now)) · All day"
+        }
         if event.isOngoing(at: now) {
             return "Now · until \(event.end.formatted(date: .omitted, time: .shortened))"
         }
-        if !Calendar.current.isDate(event.start, inSameDayAs: now) {
-            return "Tomorrow · \(start)"
+        if let day = UpNextView.dayLabel(for: event.start, now: now) {
+            return "\(day) · \(start)"
         }
         if let relative = UpNextView.shortRelative(for: event, now: now) {
             return "\(start) · \(relative)"
