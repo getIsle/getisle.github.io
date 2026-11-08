@@ -14,7 +14,7 @@ on:
       version:
         description: "Version number, e.g. 1.3"
         required: true
-        default: "1.3.1"
+        default: "1.3.2"
       prerelease:
         description: "Test build only (pre-release: the website keeps the current version)"
         type: boolean
@@ -96,11 +96,13 @@ jobs:
       - name: Publish the release
         run: |
           cat > notes.md <<'NOTES'
-          ## Hover that keeps up
+          ## Your calendar, further ahead
 
-          The island now lifts the moment your pointer reaches the notch, even while it's still moving. Before, it waited for the pointer to slow down, so a smooth glide onto the notch seemed to do nothing.
+          The calendar side of the island now shows the next two weeks, nearest first, instead of stopping at tomorrow. Later events say Tomorrow or the day and date, like Wed 12.
 
-          Everything from 1.3 is still here: notifications drop out of the notch like water and flow back in.
+          Festivals and holidays such as Diwali now show as All day. Your own events always come first; holidays and birthdays fill the rows left over, and they never send a reminder.
+
+          Also in 1.3.1: the island lifts the moment your pointer reaches the notch, even while it's still moving.
 
           ## Installing
 

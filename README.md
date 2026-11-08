@@ -464,7 +464,7 @@ look half empty.
 ## Making a DMG
 
 **Easiest: let GitHub build it.** On GitHub, open **Actions ▸ Release ▸ Run workflow**
-and type the new version (e.g. `1.3.1`). A GitHub-hosted Mac builds Isle, makes
+and type the new version (e.g. `1.3.2`). A GitHub-hosted Mac builds Isle, makes
 `Isle.dmg` and publishes it as a release, and the website's Download button
 (`releases/latest/download/Isle.dmg`) serves it straight away. Tick *Test build only*
 to publish it as a pre-release instead, which the website ignores. If the build
